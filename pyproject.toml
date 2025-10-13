@@ -5,10 +5,10 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "trailpack"
 authors = [
-  { name="Brightcon Hackathon Group  1", email="<your email here>" }
+  { name="Brightcon Hackathon Group 1", email="hackathon@example.com" }
 ]
 maintainers = [
-  { name="Brightcon Hackathon Group  1", email="<your email here>" }
+  { name="Brightcon Hackathon Group 1", email="hackathon@example.com" }
 ]
 description = "Contains all the python boilerplate you need to create a Brightway ecosystem package."
 readme = "README.md"
@@ -31,6 +31,9 @@ requires-python = ">=3.9"
 dependencies = [
     # dependencies as strings with quotes, e.g. "foo"
     # You can add version requirements like "foo>2.0"
+    "pyst-client",
+    "langcodes",
+    "python-dotenv",
 ]
 
 [project.urls]
