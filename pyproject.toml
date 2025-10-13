@@ -35,6 +35,7 @@ dependencies = [
     "langcodes",
     "python-dotenv",
     "httpx",
+    "openpyxl",
 ]
 
 [project.urls]
