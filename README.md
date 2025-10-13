@@ -27,6 +27,48 @@ You can install _trailpack_ via [pip] from [PyPI]:
 $ pip install trailpack
 ```
 
+## Usage
+
+### Web UI
+
+Trailpack includes a Panel-based web UI for mapping Excel columns to PyST concepts:
+
+```bash
+# Run the UI
+python -m trailpack.ui.simple_app
+```
+
+Or using Panel serve:
+
+```bash
+panel serve trailpack/ui/simple_app.py --show
+```
+
+The UI provides a 3-step workflow:
+1. **Upload File & Select Language**: Upload an Excel file and select language for PyST mapping
+2. **Select Sheet**: Choose which sheet to process
+3. **Map Columns**: Map each column to PyST concepts with automatic suggestions
+
+For more details, see [trailpack/ui/README.md](trailpack/ui/README.md).
+
+### Python API
+
+You can also use trailpack programmatically:
+
+```python
+from trailpack.excel import ExcelReader
+from trailpack.pyst.api.client import get_suggest_client
+
+# Read Excel structure
+reader = ExcelReader("data.xlsx")
+sheets = reader.sheets()
+columns = reader.columns("Sheet1")
+
+# Get PyST suggestions
+client = get_suggest_client()
+suggestions = await client.suggest("carbon footprint", "en")
+```
+
 ## Contributing
 
 Contributions are very welcome.
