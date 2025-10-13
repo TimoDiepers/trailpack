@@ -1,7 +1,12 @@
-"""PyST API client for suggest endpoint."""
+"""PyST API client for suggest endpoint.
+
+Based on pyst_client.simple.client pattern:
+https://github.com/cauldron/pyst-client/blob/main/pyst_client/simple/client.py
+"""
 
 import httpx
 from typing import Optional, Any
+
 from trailpack.pyst.api.config import config
 from trailpack.pyst.api.requests.suggest import SuggestRequest
 
@@ -19,7 +24,7 @@ class PystSuggestClient:
     """
 
     _instance: Optional["PystSuggestClient"] = None
-    _http_client: Optional[httpx.AsyncClient] = None
+    _api_client: Optional[httpx.AsyncClient] = None
 
     def __new__(cls):
         """Singleton pattern - only one instance exists."""
@@ -29,18 +34,24 @@ class PystSuggestClient:
 
     def __init__(self):
         """Initialize the client with configuration."""
-        if self._http_client is None:
+        if self._api_client is None:
             self._initialize_client()
 
     def _initialize_client(self):
         """Initialize the HTTP client with configuration."""
-        headers = {}
+        headers = {
+            "Content-Type": "application/json",
+        }
 
+        # Set up authentication if token is provided
+        # PyST uses "x-pyst-auth-token" header, not Bearer token
         if config.auth_token:
-            headers["Authorization"] = f"Bearer {config.auth_token}"
+            headers["x-pyst-auth-token"] = config.auth_token
 
-        self._http_client = httpx.AsyncClient(
-            base_url=config.host,
+        # Create httpx AsyncClient
+        import httpx
+        self._api_client = httpx.AsyncClient(
+            base_url=config.host.rstrip('/'),
             timeout=config.timeout,
             headers=headers,
             follow_redirects=True
@@ -74,7 +85,7 @@ class PystSuggestClient:
             List of concept suggestions
 
         Raises:
-            httpx.HTTPError: If the API request fails
+            ApiException: If the API request fails
             ValueError: If request parameters are invalid
 
         Example:
@@ -87,8 +98,8 @@ class PystSuggestClient:
         request = SuggestRequest(query=query, language=language)
         params = request.to_query_params()
 
-        # Make API request
-        response = await self._http_client.get(
+        # Make API request using httpx AsyncClient
+        response = await self._api_client.get(
             "/concepts/suggest/",
             params=params
         )
@@ -100,10 +111,10 @@ class PystSuggestClient:
         return response.json()
 
     async def close(self):
-        """Close the HTTP client connection."""
-        if self._http_client is not None:
-            await self._http_client.aclose()
-            self._http_client = None
+        """Close the API client connection."""
+        if self._api_client is not None:
+            await self._api_client.aclose()
+            self._api_client = None
 
     async def __aenter__(self):
         """Async context manager entry."""

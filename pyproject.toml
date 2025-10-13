@@ -31,9 +31,10 @@ requires-python = ">=3.9"
 dependencies = [
     # dependencies as strings with quotes, e.g. "foo"
     # You can add version requirements like "foo>2.0"
-    "pyst-client",
+    "pyst-client @ git+https://github.com/cauldron/pyst-client.git",
     "langcodes",
     "python-dotenv",
+    "httpx",
 ]
 
 [project.urls]
