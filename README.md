@@ -27,6 +27,44 @@ You can install _trailpack_ via [pip] from [PyPI]:
 $ pip install trailpack
 ```
 
+## ✨ New: UI-Ready DataPackage Schema Classes
+
+This project now includes comprehensive schema classes for building data package metadata through user interfaces:
+
+### Key Features
+- **`DataPackageSchema`**: Defines field types, validation rules, and UI configuration
+- **`DataPackageBuilder`**: Fluent interface for creating metadata programmatically
+- **Field validation**: Built-in validation for package names, versions, URLs
+- **UI integration ready**: Field definitions include labels, placeholders, patterns
+- **Standards compliant**: Follows Frictionless Data Package specification
+
+### Quick Example
+```python
+from trailpack.datapackage_schema import DataPackageBuilder, Resource, Field
+
+# Create metadata with fluent interface
+metadata = (DataPackageBuilder()
+    .set_basic_info(name="my-dataset", title="My Dataset")
+    .add_license("CC-BY-4.0")
+    .add_contributor("Your Name", "author")
+    .add_resource(Resource(name="data", path="data.parquet"))
+    .build())
+
+# Use with existing Packing class
+from trailpack.packing import Packing
+packer = Packing(df, metadata)
+packer.write_parquet("output.parquet")
+```
+
+### UI Integration
+The schema classes provide everything needed for UI frameworks:
+- Field definitions with types, labels, validation patterns
+- Enumerated options for dropdowns (licenses, profiles, etc.)
+- Built-in validation methods
+- Error messages for invalid input
+
+See `examples/datapackage_ui_demo.py` for detailed usage examples.
+
 ## Contributing
 
 Contributions are very welcome.
