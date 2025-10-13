@@ -1,0 +1,25 @@
+{
+  "template": "https://github.com/brightway-lca/cookiecutter-brightwaylib",
+  "commit": "e5b99b9bc6d84a9337ee2c0790630aa1fe5d3ae7",
+  "checkout": null,
+  "context": {
+    "cookiecutter": {
+      "full_name": "Brightcon Hackathon Group  1",
+      "email": "<your email here>",
+      "github_username": "TimoDiepers",
+      "project_name": "trailpaack",
+      "package_name": "trailpack",
+      "project_short_description": "Contains all the python boilerplate you need to create a Brightway ecosystem package.",
+      "version": "0.1.0",
+      "use_pytest": "y",
+      "open_source_license": "MIT",
+      "copyright_year": "2025",
+      "code_of_conduct_contact": "timo.diepers@gmail.com",
+      "_copy_without_render": [
+        ".github/*"
+      ],
+      "_template": "https://github.com/brightway-lca/cookiecutter-brightwaylib"
+    }
+  },
+  "directory": null
+}
