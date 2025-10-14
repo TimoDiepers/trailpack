@@ -421,7 +421,7 @@ class DataPackageSchema:
         return True, ""
 
 
-class Meta:
+class MetaDataBuilder:
     """
     Interactive builder for creating DataPackage metadata.
     Can be used with UI frameworks to collect user input.
