@@ -7,6 +7,7 @@ A Streamlit-based web interface for mapping Excel columns to PyST concepts.
 - **Page 1**: Upload Excel file and select language for PyST concept mapping
 - **Page 2**: Select sheet from the uploaded Excel file with data preview
 - **Page 3**: Map columns to PyST concepts with automatic suggestions and dataframe preview
+- **Page 4**: Enter general details and metadata for the data package
 
 ## Running the UI
 
@@ -45,7 +46,14 @@ The UI will be available at http://localhost:8501
    - See sample values from each column
    - View automatic PyST concept suggestions based on the column name
    - Select the most appropriate PyST concept mapping
-   - Finish to save mappings internally
+   - Continue to general details
+
+4. **General Details**: Provide metadata for the data package:
+   - Package name (required) - URL-safe identifier
+   - Title, description, and version (optional)
+   - Profile type, keywords, homepage, and repository (optional)
+   - Real-time validation of inputs
+   - Finish to complete the workflow
 
 ## Features
 
