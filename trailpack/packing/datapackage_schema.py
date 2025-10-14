@@ -125,8 +125,6 @@ class Field:
             result["unit"] = self.unit
         if self.unit_code:
             result["unitCode"] = self.unit_code
-        if self.ucd:
-            result["ucd"] = self.ucd
         if self.rdf_type:
             result["rdfType"] = self.rdf_type
         if self.taxonomy_url:
