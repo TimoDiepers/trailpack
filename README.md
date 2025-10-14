@@ -53,6 +53,8 @@ The view object is stored internally for further processing.
 
 For more details, see [trailpack/ui/README.md](trailpack/ui/README.md).
 
+**Deploying to Streamlit Cloud?** See [STREAMLIT_DEPLOYMENT.md](STREAMLIT_DEPLOYMENT.md) for complete deployment instructions.
+
 ### Python API
 
 You can also use trailpack programmatically:
