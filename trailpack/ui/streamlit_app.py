@@ -203,18 +203,18 @@ with st.sidebar:
     st.markdown("---")
     
     st.markdown("### Steps:")
-    
+
     # Step indicators with icons
     if st.session_state.page >= 1:
         st.markdown("✅ **1. Upload & Select Language**" if st.session_state.page > 1 else "▶️ **1. Upload & Select Language**")
     else:
         st.markdown("⬜ 1. Upload & Select Language")
-    
+
     if st.session_state.page >= 2:
         st.markdown("✅ **2. Select Sheet**" if st.session_state.page > 2 else "▶️ **2. Select Sheet**")
     else:
         st.markdown("⬜ 2. Select Sheet")
-    
+
     if st.session_state.page >= 3:
         st.markdown("▶️ **3. Map Columns**")
     else:
