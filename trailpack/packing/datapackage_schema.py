@@ -594,30 +594,6 @@ class MetaDataBuilder:
         }
 
 
-# Common license templates
-COMMON_LICENSES = {
-    "CC-BY-4.0": {
-        "name": "CC-BY-4.0",
-        "title": "Creative Commons Attribution 4.0",
-        "path": "https://creativecommons.org/licenses/by/4.0/",
-    },
-    "MIT": {
-        "name": "MIT",
-        "title": "MIT License",
-        "path": "https://opensource.org/licenses/MIT",
-    },
-    "Apache-2.0": {
-        "name": "Apache-2.0",
-        "title": "Apache License 2.0",
-        "path": "https://www.apache.org/licenses/LICENSE-2.0",
-    },
-    "CC0-1.0": {
-        "name": "CC0-1.0",
-        "title": "Creative Commons Zero v1.0 Universal",
-        "path": "https://creativecommons.org/publicdomain/zero/1.0/",
-    },
-}
-
 # Field type templates for quick creation
 FIELD_TEMPLATES = {
     "id": Field(
