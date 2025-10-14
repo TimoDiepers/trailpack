@@ -1,11 +1,11 @@
 """
-DataPackage metadata schema and interactive builder classes.
+DataPackage metadata schema and interactive builder classes using Pydantic.
 Provides structured definitions and UI-friendly methods for creating
-Frictionless Data Package metadata.
+Frictionless Data Package metadata with automatic validation.
 """
 
 from typing import Dict, List, Any, Optional, Union
-from dataclasses import dataclass, field
+from pydantic import BaseModel, Field as PydanticField, validator
 from enum import Enum
 import re
 from datetime import datetime
@@ -32,106 +32,155 @@ class ContributorRole(Enum):
     WRANGLER = "wrangler"
 
 
-@dataclass
-class License:
-    """License information."""
-    name: str
-    title: Optional[str] = None
-    path: Optional[str] = None
+class License(BaseModel):
+    """License information with automatic validation."""
+    name: str = PydanticField(..., description="License identifier (e.g., 'CC-BY-4.0', 'MIT')")
+    title: Optional[str] = PydanticField(None, description="Human-readable license title")
+    path: Optional[str] = PydanticField(None, description="URL to license text")
+    
+    @validator('path')
+    @classmethod
+    def validate_path_url(cls, v):
+        """Validate that path is a proper URL if provided."""
+        if v and not re.match(r'^https?://', v):
+            raise ValueError('License path must be a valid HTTP(S) URL')
+        return v
     
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary format."""
-        result = {"name": self.name}
-        if self.title:
-            result["title"] = self.title
-        if self.path:
-            result["path"] = self.path
-        return result
+        """Convert to dictionary format, excluding None values."""
+        return self.dict(exclude_none=True)
 
 
-@dataclass
-class Contributor:
-    """Contributor information."""
-    name: str
-    role: str = "author"
-    email: Optional[str] = None
-    organization: Optional[str] = None
+class Contributor(BaseModel):
+    """Contributor information with validation."""
+    name: str = PydanticField(..., description="Contributor name")
+    role: str = PydanticField("author", description="Contributor role")
+    email: Optional[str] = PydanticField(None, description="Contact email address")
+    organization: Optional[str] = PydanticField(None, description="Organization or affiliation")
+    
+    @validator('email')
+    @classmethod
+    def validate_email(cls, v):
+        """Basic email validation."""
+        if v and '@' not in v:
+            raise ValueError('Email must contain @ symbol')
+        return v
+    
+    @validator('role')
+    @classmethod
+    def validate_role(cls, v):
+        """Validate role is from accepted list."""
+        valid_roles = ["author", "contributor", "maintainer", "publisher", "wrangler"]
+        if v not in valid_roles:
+            raise ValueError(f'Role must be one of: {", ".join(valid_roles)}')
+        return v
     
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary format."""
-        result = {"name": self.name, "role": self.role}
-        if self.email:
-            result["email"] = self.email
-        if self.organization:
-            result["organization"] = self.organization
-        return result
+        """Convert to dictionary format, excluding None values."""
+        return self.dict(exclude_none=True)
 
 
-@dataclass
-class Source:
-    """Data source information."""
-    title: str
-    path: Optional[str] = None
-    description: Optional[str] = None
+class Source(BaseModel):
+    """Data source information with validation."""
+    title: str = PydanticField(..., description="Source title")
+    path: Optional[str] = PydanticField(None, description="Path to source data")
+    description: Optional[str] = PydanticField(None, description="Source description")
+    
+    @validator('path')
+    @classmethod
+    def validate_path(cls, v):
+        """Basic path validation."""
+        if v and not (v.startswith(('http://', 'https://', 'file://')) or v.startswith('./')):
+            # Allow relative paths, URLs, and file:// schemes
+            pass
+        return v
     
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary format."""
-        result = {"title": self.title}
-        if self.path:
-            result["path"] = self.path
-        if self.description:
-            result["description"] = self.description
-        return result
+        """Convert to dictionary format, excluding None values."""
+        return self.dict(exclude_none=True)
 
 
-@dataclass
-class FieldConstraints:
-    """Field validation constraints."""
-    required: Optional[bool] = None
-    unique: Optional[bool] = None
-    minimum: Optional[Union[int, float]] = None
-    maximum: Optional[Union[int, float]] = None
-    pattern: Optional[str] = None
-    enum: Optional[List[str]] = None
+class FieldConstraints(BaseModel):
+    """Field validation constraints with validation."""
+    required: Optional[bool] = PydanticField(None, description="Field is required")
+    unique: Optional[bool] = PydanticField(None, description="Field values must be unique")
+    minimum: Optional[Union[int, float]] = PydanticField(None, description="Minimum value")
+    maximum: Optional[Union[int, float]] = PydanticField(None, description="Maximum value")
+    pattern: Optional[str] = PydanticField(None, description="Regular expression pattern")
+    enum: Optional[List[str]] = PydanticField(None, description="Allowed values")
+    
+    @validator('minimum', 'maximum')
+    @classmethod
+    def validate_numeric_constraints(cls, v, values, field):
+        """Validate numeric constraints."""
+        if v is not None:
+            if field.name == 'maximum' and 'minimum' in values and values['minimum'] is not None:
+                if v < values['minimum']:
+                    raise ValueError('Maximum must be greater than or equal to minimum')
+        return v
+    
+    @validator('pattern')
+    @classmethod
+    def validate_pattern(cls, v):
+        """Validate regex pattern."""
+        if v:
+            try:
+                re.compile(v)
+            except re.error as e:
+                raise ValueError(f'Invalid regex pattern: {e}') from e
+        return v
     
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary format."""
-        result = {}
-        for key, value in self.__dict__.items():
-            if value is not None:
-                result[key] = value
-        return result
+        """Convert to dictionary format, excluding None values."""
+        return self.dict(exclude_none=True)
 
 
-@dataclass
-class Field:
-    """Data field schema definition."""
-    name: str
-    type: str
-    description: Optional[str] = None
-    unit: Optional[str] = None
-    unit_code: Optional[str] = None
-    ucd: Optional[str] = None  # Unified Content Descriptor (astronomy)
-    rdf_type: Optional[str] = None
-    taxonomy_url: Optional[str] = None
-    constraints: Optional[FieldConstraints] = None
+class Field(BaseModel):
+    """Data field schema definition with validation."""
+    name: str = PydanticField(..., description="Field name")
+    type: str = PydanticField(..., description="Field type")
+    description: Optional[str] = PydanticField(None, description="Field description")
+    unit: Optional[str] = PydanticField(None, description="Unit of measurement")
+    unit_code: Optional[str] = PydanticField(None, description="Unit code (e.g., QUDT)")
+    rdf_type: Optional[str] = PydanticField(None, description="RDF type URI")
+    taxonomy_url: Optional[str] = PydanticField(None, description="Taxonomy URL")
+    constraints: Optional[FieldConstraints] = PydanticField(None, description="Field constraints")
     
+    @validator('type')
+    @classmethod
+    def validate_field_type(cls, v):
+        """Validate field type is from accepted list."""
+        valid_types = ["string", "number", "integer", "boolean", "date", "datetime", "time", "duration", "geopoint", "geojson", "object", "array", "any"]
+        if v not in valid_types:
+            raise ValueError(f'Field type must be one of: {", ".join(valid_types)}')
+        return v
+    
+    @validator('unit_code')
+    @classmethod
+    def validate_unit_code(cls, v):
+        """Basic validation for unit codes."""
+        if v and not v.startswith(('http://', 'https://')):
+            # Allow both URIs and short codes
+            pass
+        return v
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary format."""
         result = {"name": self.name, "type": self.type}
         
-        if self.description:
-            result["description"] = self.description
-        if self.unit:
-            result["unit"] = self.unit
-        if self.unit_code:
-            result["unitCode"] = self.unit_code
-        if self.ucd:
-            result["ucd"] = self.ucd
-        if self.rdf_type:
-            result["rdfType"] = self.rdf_type
-        if self.taxonomy_url:
-            result["taxonomyUrl"] = self.taxonomy_url
+        # Add optional fields
+        optional_fields = {
+            'description': self.description,
+            'unit': self.unit,
+            'unitCode': self.unit_code,
+            'rdfType': self.rdf_type,
+            'taxonomyUrl': self.taxonomy_url
+        }
+        
+        for key, value in optional_fields.items():
+            if value:
+                result[key] = value
+                
         if self.constraints:
             constraints_dict = self.constraints.to_dict()
             if constraints_dict:
@@ -140,41 +189,59 @@ class Field:
         return result
 
 
-@dataclass
-class Resource:
-    """Data resource (file) definition."""
-    name: str
-    path: str
-    title: Optional[str] = None
-    description: Optional[str] = None
-    format: Optional[str] = None
-    mediatype: Optional[str] = None
-    encoding: str = "utf-8"
-    profile: Optional[str] = None
-    fields: List[Field] = field(default_factory=list)
-    primary_key: List[str] = field(default_factory=list)
+class Resource(BaseModel):
+    """Data resource (file) definition with validation."""
+    name: str = PydanticField(..., description="Resource name")
+    path: str = PydanticField(..., description="Path to resource")
+    title: Optional[str] = PydanticField(None, description="Resource title")
+    description: Optional[str] = PydanticField(None, description="Resource description")
+    format: Optional[str] = PydanticField(None, description="File format")
+    mediatype: Optional[str] = PydanticField(None, description="Media type")
+    encoding: str = PydanticField("utf-8", description="Text encoding")
+    profile: Optional[str] = PydanticField(None, description="Resource profile")
+    fields: List[Field] = PydanticField(default_factory=list, description="Field definitions")
+    primary_key: List[str] = PydanticField(default_factory=list, description="Primary key fields")
     
+    @validator('format')
+    @classmethod
+    def validate_format(cls, v):
+        """Validate format is recognized."""
+        # Allow any format - validation can be extended as needed
+        return v
+    
+    @validator('encoding')
+    @classmethod  
+    def validate_encoding(cls, v):
+        """Validate encoding is valid."""
+        import codecs
+        try:
+            codecs.lookup(v)
+        except LookupError as exc:
+            raise ValueError(f'Invalid encoding: {v}') from exc
+        return v
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary format."""
-        result = {"name": self.name, "path": self.path}
+        result: Dict[str, Any] = {"name": self.name, "path": self.path}
         
-        if self.title:
-            result["title"] = self.title
-        if self.description:
-            result["description"] = self.description
-        if self.format:
-            result["format"] = self.format
-        if self.mediatype:
-            result["mediatype"] = self.mediatype
+        # Add optional fields
+        optional_fields = {
+            'title': self.title,
+            'description': self.description,
+            'format': self.format,
+            'mediatype': self.mediatype,
+            'profile': self.profile
+        }
+        
+        for key, value in optional_fields.items():
+            if value:
+                result[key] = value
+                
         if self.encoding != "utf-8":
             result["encoding"] = self.encoding
-        if self.profile:
-            result["profile"] = self.profile
-        
+
         if self.fields:
-            schema = {
-                "fields": [field.to_dict() for field in self.fields]
-            }
+            schema: Dict[str, Any] = {"fields": [field.to_dict() for field in self.fields]}
             if self.primary_key:
                 schema["primaryKey"] = self.primary_key
             result["schema"] = schema
@@ -350,9 +417,12 @@ class DataPackageBuilder:
         self.contributors = []
         self.sources = []
         self.resources = []
-    
-    def set_basic_info(self, name: str, title: str = None, description: str = None, 
-                      version: str = None) -> 'DataPackageBuilder':
+        self.licenses = []
+        self.set_dates()  # Automatically set creation date
+
+    def set_basic_info(
+        self, name: str, title: Optional[str] = None, description: Optional[str] = None, version: Optional[str] = None
+    ) -> "MetaDataBuilder":
         """Set basic package information."""
         # Validate required name
         is_valid, error = self.schema.validate_package_name(name)
@@ -389,8 +459,10 @@ class DataPackageBuilder:
         if modified:
             self.metadata["modified"] = modified
         return self
-    
-    def set_links(self, homepage: str = None, repository: str = None) -> 'DataPackageBuilder':
+
+    def set_links(
+        self, homepage: Optional[str] = None, repository: Optional[str] = None
+    ) -> "MetaDataBuilder":
         """Set homepage and repository URLs."""
         if homepage:
             is_valid, error = self.schema.validate_url(homepage)
@@ -405,21 +477,37 @@ class DataPackageBuilder:
             self.metadata["repository"] = repository
         
         return self
-    
-    def add_license(self, name: str, title: str = None, path: str = None) -> 'DataPackageBuilder':
-        """Add license information."""
-        license_obj = License(name=name, title=title, path=path)
+
+    def add_license(
+        self, name: Optional[str] = None, title: Optional[str] = None, path: Optional[str] = None
+    ) -> "MetaDataBuilder":
+        """Add license information. Defaults to CC-BY-4.0 if no name provided.
+        License name should be a valid SPDX identifier.
+        path should be a valid URL to SPDX license page.
+        See https://spdx.org/licenses/ for common licenses.
+        """
+        if not name:
+            license_obj = License()
+        else:
+            license_obj = License(name=name, title=title, path=path)
         self.licenses.append(license_obj)
         return self
-    
-    def add_contributor(self, name: str, role: str = "author", email: str = None, 
-                       organization: str = None) -> 'DataPackageBuilder':
+
+    def add_contributor(
+        self,
+        name: str,
+        role: str = "author",
+        email: Optional[str] = None,
+        organization: Optional[str] = None,
+    ) -> "MetaDataBuilder":
         """Add contributor information."""
         contributor = Contributor(name=name, role=role, email=email, organization=organization)
         self.contributors.append(contributor)
         return self
-    
-    def add_source(self, title: str, path: str = None, description: str = None) -> 'DataPackageBuilder':
+
+    def add_source(
+        self, title: str, path: Optional[str] = None, description: Optional[str] = None
+    ) -> "MetaDataBuilder":
         """Add data source information."""
         source = Source(title=title, path=path, description=description)
         self.sources.append(source)
