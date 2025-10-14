@@ -1,7 +1,11 @@
 from dataclasses import dataclass
 from typing import Optional
 import os
-from pathlib import Path
+
+try:
+    import streamlit as st
+except ImportError:  # Streamlit not available outside the app
+    st = None
 
 @dataclass
 class PystConfig:
@@ -12,19 +16,30 @@ class PystConfig:
 
     @classmethod
     def from_env(cls):
-        """Load configuration from environment variables"""
-        # Try to load .env file if it exists
-        try:
-            from dotenv import load_dotenv
-            env_path = Path(__file__).resolve().parents[3] / '.env'
-            if env_path.exists():
-                load_dotenv(env_path)
-        except ImportError:
-            pass  # dotenv not installed, use existing env vars
+        """Load configuration from Streamlit secrets with env fallback"""
+        secret_host: Optional[str] = None
+        secret_auth_token: Optional[str] = None
+
+        if st is not None:
+            try:
+                secrets = st.secrets
+            except Exception:
+                secrets = None
+
+            if secrets is not None:
+                try:
+                    secret_host = secrets["PYST_HOST"]
+                except Exception:
+                    secret_host = None
+
+                try:
+                    secret_auth_token = secrets["PYST_AUTH_TOKEN"]
+                except Exception:
+                    secret_auth_token = None
 
         return cls(
-            host=os.getenv("PYST_HOST", "http://localhost:8000"),
-            auth_token=os.getenv("PYST_AUTH_TOKEN"),
+            host=secret_host or os.getenv("PYST_HOST", "http://localhost:8000"),
+            auth_token=secret_auth_token or os.getenv("PYST_AUTH_TOKEN"),
             timeout=int(os.getenv("PYST_TIMEOUT", "30"))
         )
 
