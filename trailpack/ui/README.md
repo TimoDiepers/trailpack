@@ -95,12 +95,59 @@ This view object is stored in `st.session_state.view_object` and can be accessed
 
 ## Configuration
 
-The UI uses the same configuration as the rest of the trailpack package. Make sure to set up your `.env` file with the PyST API credentials:
+The UI uses the same configuration as the rest of the trailpack package.
+
+### Local Development
+
+For local development, create a `.env` file in the project root with your PyST API credentials:
 
 ```
-PYST_HOST=https://api.pyst.example.com
+PYST_HOST=http://localhost:8000/api/v1/
 PYST_AUTH_TOKEN=your_token_here
+PYST_TIMEOUT=30
 ```
+
+You can also copy `.env.example` and modify it:
+
+```bash
+cp .env.example .env
+```
+
+### Streamlit Cloud Deployment
+
+For deploying to Streamlit Community Cloud:
+
+1. **Push your code to GitHub** (excluding secrets)
+
+2. **Configure secrets in Streamlit Cloud**:
+   - Go to your app settings in Streamlit Cloud
+   - Navigate to "Secrets" section
+   - Add the following secrets in TOML format:
+
+   ```toml
+   PYST_HOST = "https://vocab.sentier.dev/api/v1/"
+   PYST_AUTH_TOKEN = "your_production_token"
+   PYST_TIMEOUT = "30"
+   ```
+
+3. **Specify the main file**:
+   - Main file path: `trailpack/ui/streamlit_app.py`
+
+4. **Requirements**:
+   - The `requirements.txt` in the root directory will be automatically used
+   - Ensure all dependencies are listed (streamlit, pandas, openpyxl, httpx, etc.)
+
+### Secrets Management
+
+The application reads configuration from:
+1. Streamlit secrets (for Streamlit Cloud deployment)
+2. Environment variables (for local development)
+3. Default values as fallback
+
+The configuration is handled in `trailpack/pyst/api/config.py`:
+- Streamlit secrets are checked first (using `st.secrets`)
+- Falls back to environment variables if secrets are not available
+- Uses sensible defaults if neither is available
 
 ## Architecture
 

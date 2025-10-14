@@ -128,4 +128,7 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+# Streamlit secrets
+.streamlit/secrets.toml
+
 /trailpack/data/*
