@@ -111,7 +111,6 @@ class Field:
     description: Optional[str] = None
     unit: Optional[str] = None
     unit_code: Optional[str] = None
-    ucd: Optional[str] = None  # Unified Content Descriptor (astronomy)
     rdf_type: Optional[str] = None
     taxonomy_url: Optional[str] = None
     constraints: Optional[FieldConstraints] = None
