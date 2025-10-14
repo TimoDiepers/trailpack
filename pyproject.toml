@@ -33,7 +33,6 @@ dependencies = [
     # You can add version requirements like "foo>2.0"
     "pyst-client @ git+https://github.com/cauldron/pyst-client.git",
     "langcodes",
-    "python-dotenv",
     "httpx",
     "openpyxl",
     "streamlit>=1.28.0",
