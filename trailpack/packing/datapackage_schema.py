@@ -333,7 +333,7 @@ class DataPackageSchema:
         return True, ""
 
 
-class DataPackageBuilder:
+class MetaDataBuilder:
     """
     Interactive builder for creating DataPackage metadata.
     Can be used with UI frameworks to collect user input.
@@ -349,7 +349,7 @@ class DataPackageBuilder:
         self.resources = []
     
     def set_basic_info(self, name: str, title: str = None, description: str = None, 
-                      version: str = None) -> 'DataPackageBuilder':
+                      version: str = None) -> 'MetaDataBuilder':
         """Set basic package information."""
         # Validate required name
         is_valid, error = self.schema.validate_package_name(name)
@@ -369,25 +369,22 @@ class DataPackageBuilder:
         
         return self
     
-    def set_profile(self, profile: str) -> 'DataPackageBuilder':
+    def set_profile(self, profile: str) -> 'MetaDataBuilder':
         """Set package profile."""
         self.metadata["profile"] = profile
         return self
     
-    def set_keywords(self, keywords: List[str]) -> 'DataPackageBuilder':
+    def set_keywords(self, keywords: List[str]) -> 'MetaDataBuilder':
         """Set keywords/tags."""
         self.metadata["keywords"] = keywords
         return self
     
-    def set_dates(self, created: str = None, modified: str = None) -> 'DataPackageBuilder':
-        """Set creation and modification dates."""
-        if created:
-            self.metadata["created"] = created
-        if modified:
-            self.metadata["modified"] = modified
+    def set_dates(self) -> 'MetaDataBuilder':
+        """Set creation date to the current date."""
+        self.metadata["created"] = datetime.now().isoformat()
         return self
     
-    def set_links(self, homepage: str = None, repository: str = None) -> 'DataPackageBuilder':
+    def set_links(self, homepage: str = None, repository: str = None) -> 'MetaDataBuilder':
         """Set homepage and repository URLs."""
         if homepage:
             is_valid, error = self.schema.validate_url(homepage)
@@ -403,26 +400,26 @@ class DataPackageBuilder:
         
         return self
     
-    def add_license(self, name: str, title: str = None, path: str = None) -> 'DataPackageBuilder':
+    def add_license(self, name: str, title: str = None, path: str = None) -> 'MetaDataBuilder':
         """Add license information."""
         license_obj = License(name=name, title=title, path=path)
         self.licenses.append(license_obj)
         return self
     
     def add_contributor(self, name: str, role: str = "author", email: str = None, 
-                       organization: str = None) -> 'DataPackageBuilder':
+                       organization: str = None) -> 'MetaDataBuilder':
         """Add contributor information."""
         contributor = Contributor(name=name, role=role, email=email, organization=organization)
         self.contributors.append(contributor)
         return self
     
-    def add_source(self, title: str, path: str = None, description: str = None) -> 'DataPackageBuilder':
+    def add_source(self, title: str, path: str = None, description: str = None) -> 'MetaDataBuilder':
         """Add data source information."""
         source = Source(title=title, path=path, description=description)
         self.sources.append(source)
         return self
     
-    def add_resource(self, resource: Resource) -> 'DataPackageBuilder':
+    def add_resource(self, resource: Resource) -> 'MetaDataBuilder':
         """Add a data resource."""
         self.resources.append(resource)
         return self
