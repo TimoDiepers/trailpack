@@ -5,6 +5,7 @@ import tempfile
 import json
 from pathlib import Path
 from typing import Dict, List, Optional, Any
+from datetime import datetime
 
 import streamlit as st
 import pandas as pd
@@ -13,7 +14,7 @@ import openpyxl
 from trailpack.excel import ExcelReader
 from trailpack.pyst.api.requests.suggest import SUPPORTED_LANGUAGES
 from trailpack.pyst.api.client import get_suggest_client
-from trailpack.packing.datapackage_schema import DataPackageSchema
+from trailpack.packing.datapackage_schema import DataPackageSchema, COMMON_LICENSES
 
 
 # Page configuration
@@ -634,6 +635,192 @@ elif st.session_state.page == 4:
     elif repository == "":
         st.session_state.general_details.pop("repository", None)
     
+    # Created date (optional, pre-filled with current date)
+    created_field = field_defs.get("created", {})
+    default_created = st.session_state.general_details.get("created", datetime.now().strftime("%Y-%m-%d"))
+    created = st.date_input(
+        created_field.get("label", "Created Date"),
+        value=datetime.strptime(default_created, "%Y-%m-%d").date() if default_created else datetime.now().date(),
+        help=created_field.get("description", ""),
+        key="input_created"
+    )
+    if created:
+        st.session_state.general_details["created"] = created.strftime("%Y-%m-%d")
+    
+    # Modified date (optional)
+    modified_field = field_defs.get("modified", {})
+    # Get the stored value or None
+    stored_modified = st.session_state.general_details.get("modified")
+    modified_value = None
+    if stored_modified:
+        try:
+            modified_value = datetime.strptime(stored_modified, "%Y-%m-%d").date()
+        except:
+            modified_value = None
+    
+    modified = st.date_input(
+        modified_field.get("label", "Modified Date"),
+        value=modified_value,
+        help=modified_field.get("description", ""),
+        key="input_modified"
+    )
+    if modified:
+        st.session_state.general_details["modified"] = modified.strftime("%Y-%m-%d")
+    elif not modified:
+        st.session_state.general_details.pop("modified", None)
+    
+    st.markdown("### Licenses")
+    
+    # License selection
+    license_options = ["None"] + list(COMMON_LICENSES.keys()) + ["Custom"]
+    current_licenses = st.session_state.general_details.get("licenses", [])
+    
+    # Display existing licenses
+    if current_licenses:
+        st.markdown("**Current Licenses:**")
+        for idx, lic in enumerate(current_licenses):
+            col1, col2 = st.columns([4, 1])
+            with col1:
+                st.text(f"{lic.get('name', 'Unknown')} - {lic.get('title', 'No title')}")
+            with col2:
+                if st.button("🗑️", key=f"delete_license_{idx}"):
+                    current_licenses.pop(idx)
+                    st.session_state.general_details["licenses"] = current_licenses
+                    st.rerun()
+    
+    # Add new license
+    st.markdown("**Add License:**")
+    license_choice = st.selectbox(
+        "Select a license",
+        options=license_options,
+        key="license_select",
+        label_visibility="collapsed"
+    )
+    
+    if license_choice != "None":
+        if license_choice == "Custom":
+            col1, col2 = st.columns(2)
+            with col1:
+                custom_license_name = st.text_input("License Name", key="custom_license_name", placeholder="MIT")
+            with col2:
+                custom_license_title = st.text_input("License Title", key="custom_license_title", placeholder="MIT License")
+            custom_license_url = st.text_input("License URL", key="custom_license_url", placeholder="https://opensource.org/licenses/MIT")
+            
+            if st.button("Add Custom License"):
+                if custom_license_name:
+                    new_license = {
+                        "name": custom_license_name,
+                        "title": custom_license_title if custom_license_title else custom_license_name,
+                        "path": custom_license_url if custom_license_url else None
+                    }
+                    if "licenses" not in st.session_state.general_details:
+                        st.session_state.general_details["licenses"] = []
+                    st.session_state.general_details["licenses"].append(new_license)
+                    st.rerun()
+        else:
+            if st.button(f"Add {license_choice}"):
+                license_info = COMMON_LICENSES[license_choice]
+                if "licenses" not in st.session_state.general_details:
+                    st.session_state.general_details["licenses"] = []
+                st.session_state.general_details["licenses"].append(license_info.copy())
+                st.rerun()
+    
+    st.markdown("### Contributors")
+    
+    # Display existing contributors
+    current_contributors = st.session_state.general_details.get("contributors", [])
+    if current_contributors:
+        st.markdown("**Current Contributors:**")
+        for idx, contrib in enumerate(current_contributors):
+            col1, col2 = st.columns([4, 1])
+            with col1:
+                contrib_text = f"{contrib.get('name', 'Unknown')} ({contrib.get('role', 'contributor')})"
+                if contrib.get('email'):
+                    contrib_text += f" - {contrib['email']}"
+                st.text(contrib_text)
+            with col2:
+                if st.button("🗑️", key=f"delete_contributor_{idx}"):
+                    current_contributors.pop(idx)
+                    st.session_state.general_details["contributors"] = current_contributors
+                    st.rerun()
+    
+    # Add new contributor
+    st.markdown("**Add Contributor:**")
+    col1, col2 = st.columns(2)
+    with col1:
+        contrib_name = st.text_input("Name", key="contrib_name", placeholder="Jane Doe")
+    with col2:
+        contrib_role = st.selectbox(
+            "Role",
+            options=["author", "contributor", "maintainer", "publisher", "wrangler"],
+            key="contrib_role"
+        )
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        contrib_email = st.text_input("Email (optional)", key="contrib_email", placeholder="jane@example.com")
+    with col2:
+        contrib_org = st.text_input("Organization (optional)", key="contrib_org", placeholder="Example Org")
+    
+    if st.button("Add Contributor"):
+        if contrib_name:
+            new_contributor = {
+                "name": contrib_name,
+                "role": contrib_role
+            }
+            if contrib_email:
+                new_contributor["email"] = contrib_email
+            if contrib_org:
+                new_contributor["organization"] = contrib_org
+            
+            if "contributors" not in st.session_state.general_details:
+                st.session_state.general_details["contributors"] = []
+            st.session_state.general_details["contributors"].append(new_contributor)
+            st.rerun()
+    
+    st.markdown("### Sources")
+    
+    # Display existing sources
+    current_sources = st.session_state.general_details.get("sources", [])
+    if current_sources:
+        st.markdown("**Current Sources:**")
+        for idx, source in enumerate(current_sources):
+            col1, col2 = st.columns([4, 1])
+            with col1:
+                source_text = f"{source.get('title', 'Unknown')}"
+                if source.get('path'):
+                    source_text += f" - {source['path']}"
+                st.text(source_text)
+            with col2:
+                if st.button("🗑️", key=f"delete_source_{idx}"):
+                    current_sources.pop(idx)
+                    st.session_state.general_details["sources"] = current_sources
+                    st.rerun()
+    
+    # Add new source
+    st.markdown("**Add Source:**")
+    source_title = st.text_input("Source Title", key="source_title", placeholder="Original Dataset")
+    col1, col2 = st.columns(2)
+    with col1:
+        source_path = st.text_input("Source URL (optional)", key="source_path", placeholder="https://example.com/data")
+    with col2:
+        source_desc = st.text_input("Source Description (optional)", key="source_desc", placeholder="Description of the source")
+    
+    if st.button("Add Source"):
+        if source_title:
+            new_source = {
+                "title": source_title
+            }
+            if source_path:
+                new_source["path"] = source_path
+            if source_desc:
+                new_source["description"] = source_desc
+            
+            if "sources" not in st.session_state.general_details:
+                st.session_state.general_details["sources"] = []
+            st.session_state.general_details["sources"].append(new_source)
+            st.rerun()
+    
     # Navigation
     col1, col2, col3 = st.columns([1, 1, 1])
     
@@ -677,8 +864,20 @@ elif st.session_state.page == 4:
                     
                     st.markdown("**General Details:**")
                     for key, value in st.session_state.general_details.items():
-                        if isinstance(value, list):
-                            st.markdown(f"- **{key.title()}:** {', '.join(value)}")
+                        if key == "licenses" and isinstance(value, list):
+                            st.markdown(f"- **Licenses:** {len(value)} license(s)")
+                            for lic in value:
+                                st.markdown(f"  - {lic.get('name', 'Unknown')}")
+                        elif key == "contributors" and isinstance(value, list):
+                            st.markdown(f"- **Contributors:** {len(value)} contributor(s)")
+                            for contrib in value:
+                                st.markdown(f"  - {contrib.get('name', 'Unknown')} ({contrib.get('role', 'contributor')})")
+                        elif key == "sources" and isinstance(value, list):
+                            st.markdown(f"- **Sources:** {len(value)} source(s)")
+                            for source in value:
+                                st.markdown(f"  - {source.get('title', 'Unknown')}")
+                        elif isinstance(value, list):
+                            st.markdown(f"- **{key.title()}:** {', '.join(str(v) for v in value)}")
                         else:
                             st.markdown(f"- **{key.title()}:** {value}")
         else:
