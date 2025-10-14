@@ -70,7 +70,8 @@ This ensures compatibility with both local development and cloud deployment.
 - Ensure the PyST API server accepts connections from Streamlit Cloud's IP range
 
 **Issue: Module not found errors**
-- Verify all dependencies are listed in `requirements.txt`
+- The app includes automatic path configuration to find trailpack modules
+- Verify all external dependencies are listed in `requirements.txt`
 - Check that there are no circular dependencies
 - Review Streamlit Cloud build logs
 
@@ -111,7 +112,7 @@ streamlit>=1.28.0
 pandas>=2.0.0
 ```
 
-**Note**: The package code is deployed directly, so `requirements.txt` does NOT include the trailpack package itself (this was causing deployment issues before).
+**Note**: The package code is deployed directly, so `requirements.txt` does NOT include the trailpack package itself. The streamlit app automatically adds the repository root to Python's import path to ensure all trailpack modules can be imported.
 
 ## Support
 
