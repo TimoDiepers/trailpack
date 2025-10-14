@@ -35,9 +35,9 @@ class ContributorRole(Enum):
 
 class License(BaseModel):
     """License information with automatic validation."""
-    name: str = PydanticField(..., description="License identifier (e.g., 'CC-BY-4.0', 'MIT')")
-    title: Optional[str] = PydanticField(None, description="Human-readable license title")
-    path: Optional[str] = PydanticField(None, description="URL to license text")
+    name: str = PydanticField('CC-BY-4.0', description="License identifier (e.g., 'CC-BY-4.0', 'MIT')")
+    title: Optional[str] = PydanticField('Creative Commons Attribution 4.0 International', description="Human-readable license title")
+    path: Optional[str] = PydanticField('https://spdx.org/licenses/CC-BY-4.0.html', description="URL to license text")
     
     @field_validator('path')
     @classmethod
@@ -421,7 +421,7 @@ class DataPackageSchema:
         return True, ""
 
 
-class DataPackageBuilder:
+class MetaDataBuilder:
     """
     Interactive builder for creating DataPackage metadata.
     Can be used with UI frameworks to collect user input.
@@ -460,22 +460,19 @@ class DataPackageBuilder:
         
         return self
     
-    def set_profile(self, profile: str) -> 'DataPackageBuilder':
+    def set_profile(self, profile: str) -> 'MetaDataBuilder':
         """Set package profile."""
         self.metadata["profile"] = profile
         return self
     
-    def set_keywords(self, keywords: List[str]) -> 'DataPackageBuilder':
+    def set_keywords(self, keywords: List[str]) -> 'MetaDataBuilder':
         """Set keywords/tags."""
         self.metadata["keywords"] = keywords
         return self
     
-    def set_dates(self, created: Optional[str] = None, modified: Optional[str] = None) -> 'DataPackageBuilder':
-        """Set creation and modification dates."""
-        if created:
-            self.metadata["created"] = created
-        if modified:
-            self.metadata["modified"] = modified
+    def set_dates(self) -> 'MetaDataBuilder':
+        """Set creation date to current time"""
+        self.metadata["created"] = datetime.datetime.now().isoformat()
         return self
 
     def set_links(
@@ -531,7 +528,7 @@ class DataPackageBuilder:
         self.sources.append(source)
         return self
     
-    def add_resource(self, resource: Resource) -> 'DataPackageBuilder':
+    def add_resource(self, resource: Resource) -> 'MetaDataBuilder':
         """Add a data resource."""
         self.resources.append(resource)
         return self

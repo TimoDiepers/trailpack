@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Example showing how to use the DataPackageSchema and DataPackageBuilder classes
+Example showing how to use the DataPackageSchema and MetaDataBuilder classes
 for interactive UI-driven metadata creation.
 
 This demonstrates how the classes can be integrated with UI frameworks
@@ -16,7 +16,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from trailpack.packing.datapackage_schema import (
     DataPackageSchema, 
-    DataPackageBuilder,
+    MetaDataBuilder,
     License,
     Contributor, 
     Source,
@@ -36,7 +36,7 @@ def simulate_cli_input():
     
     # Initialize schema and builder
     schema = DataPackageSchema()
-    builder = DataPackageBuilder()
+    builder = MetaDataBuilder()
     
     print("\n🔧 Step 1: Basic Information")
     print("-" * 30)
@@ -207,7 +207,7 @@ def demonstrate_programmatic_creation():
     print("=" * 40)
     
     # Create metadata programmatically
-    builder = (DataPackageBuilder()
+    builder = (MetaDataBuilder()
                .set_basic_info(
                    name="sample-astronomical-catalog",
                    title="Sample Astronomical Catalog",
@@ -302,11 +302,11 @@ def main():
     print("1. Generate form fields using schema.get_field_definition()")
     print("2. Collect user input through the UI")
     print("3. Validate input using schema validation methods")
-    print("4. Build metadata using DataPackageBuilder methods")
+    print("4. Build metadata using MetaDataBuilder methods")
     print("5. Export final JSON using builder.build()")
     
     # Show builder state
-    builder = DataPackageBuilder()
+    builder = MetaDataBuilder()
     print(f"\n📊 Available UI field types:")
     for field_name, field_def in builder.get_ui_fields().items():
         print(f"  • {field_name}: {field_def.get('type', 'string')} ({'required' if field_def.get('required') else 'optional'})")

@@ -33,17 +33,17 @@ This project now includes comprehensive schema classes for building data package
 
 ### Key Features
 - **`DataPackageSchema`**: Defines field types, validation rules, and UI configuration
-- **`DataPackageBuilder`**: Fluent interface for creating metadata programmatically
+- **`MetaDataBuilder`**: Fluent interface for creating metadata programmatically
 - **Field validation**: Built-in validation for package names, versions, URLs
 - **UI integration ready**: Field definitions include labels, placeholders, patterns
 - **Standards compliant**: Follows Frictionless Data Package specification
 
 ### Quick Example
 ```python
-from trailpack.datapackage_schema import DataPackageBuilder, Resource, Field
+from trailpack.datapackage_schema import MetaDataBuilder, Resource, Field
 
 # Create metadata with fluent interface
-metadata = (DataPackageBuilder()
+metadata = (MetaDataBuilder()
     .set_basic_info(name="my-dataset", title="My Dataset")
     .add_license("CC-BY-4.0")
     .add_contributor("Your Name", "author")
