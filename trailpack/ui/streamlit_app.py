@@ -236,14 +236,23 @@ with st.sidebar:
 if st.session_state.page == 1:
     st.title("Step 1: Upload File and Select Language")
     st.markdown("Upload an Excel file and select the language for PyST concept mapping.")
-    
+
+    # Show current file if already uploaded
+    if st.session_state.file_name:
+        st.success(f"✅ Current file: **{st.session_state.file_name}**")
+        change_file = st.checkbox("Upload a different file", value=False)
+    else:
+        change_file = True
+
     # File upload
-    uploaded_file = st.file_uploader(
-        "Choose an Excel file",
-        type=["xlsx", "xlsm", "xltx", "xltm"],
-        help="Upload an Excel file to map its columns to PyST concepts"
-    )
-    
+    uploaded_file = None
+    if change_file or not st.session_state.file_name:
+        uploaded_file = st.file_uploader(
+            "Choose an Excel file",
+            type=["xlsx", "xlsm", "xltx", "xltm"],
+            help="Upload an Excel file to map its columns to PyST concepts"
+        )
+
     # Language selection
     language = st.selectbox(
         "Select Language",
@@ -251,30 +260,36 @@ if st.session_state.page == 1:
         index=sorted(list(SUPPORTED_LANGUAGES)).index("en") if "en" in SUPPORTED_LANGUAGES else 0,
         help="Select the language for PyST concept suggestions"
     )
-    
+
     st.session_state.language = language
-    
+
     # Navigation
     col1, col2, col3 = st.columns([1, 1, 1])
-    
+
     with col3:
-        if uploaded_file is not None:
+        # Enable Next button if file exists (either uploaded or in session state)
+        has_file = uploaded_file is not None or st.session_state.file_name is not None
+
+        if has_file:
             if st.button("Next ➡️", type="primary", use_container_width=True):
-                # Save file
-                st.session_state.file_bytes = uploaded_file.getvalue()
-                st.session_state.file_name = uploaded_file.name
-                
-                # Save to temp file
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
-                    tmp.write(st.session_state.file_bytes)
-                    st.session_state.temp_path = Path(tmp.name)
-                
-                # Load Excel reader
-                try:
-                    st.session_state.reader = ExcelReader(st.session_state.temp_path)
-                    navigate_to(2)
-                except Exception as e:
-                    st.error(f"Error loading Excel file: {e}")
+                # Save file only if newly uploaded
+                if uploaded_file is not None:
+                    st.session_state.file_bytes = uploaded_file.getvalue()
+                    st.session_state.file_name = uploaded_file.name
+
+                    # Save to temp file
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
+                        tmp.write(st.session_state.file_bytes)
+                        st.session_state.temp_path = Path(tmp.name)
+
+                    # Load Excel reader
+                    try:
+                        st.session_state.reader = ExcelReader(st.session_state.temp_path)
+                    except Exception as e:
+                        st.error(f"Error loading Excel file: {e}")
+                        st.stop()
+
+                navigate_to(2)
         else:
             st.button("Next ➡️", type="primary", disabled=True, use_container_width=True)
 
