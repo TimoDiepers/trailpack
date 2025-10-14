@@ -585,7 +585,7 @@ elif st.session_state.page == 4:
         keywords_field.get("label", "Keywords"),
         value=", ".join(st.session_state.general_details.get("keywords", [])),
         placeholder=keywords_field.get("placeholder", ""),
-        help=keywords_field.get("description", "") + " (comma-separated)",
+        help=(keywords_field.get("description") or "") + " (comma-separated)",
         key="input_keywords"
     )
     if keywords_str:
