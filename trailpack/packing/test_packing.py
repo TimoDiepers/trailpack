@@ -6,7 +6,7 @@ import pandas as pd
 data = [
     {'location': 'New York', 'timestamp': '2025-10-13 08:00:00', 'amount': 4},
     {'location': 'Berlin', 'timestamp': '2025-10-13 09:30:00', 'amount': 10},
-    {'location': 'Tokyo', 'timestamp': '2025-10-13 11:15:00', 'amount':5}
+    {'location': 'Tokyo', 'timestamp': '2025-10-13 11:15:00', 'amount':7}
 ]
 
 # Create DataFrame

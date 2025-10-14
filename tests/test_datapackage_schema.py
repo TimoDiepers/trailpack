@@ -6,7 +6,7 @@ import pytest
 import json
 from trailpack.packing.datapackage_schema import (
     DataPackageSchema,
-    DataPackageBuilder,
+    MetaDataBuilder,
     Field,
     FieldConstraints,
     Resource,
@@ -107,12 +107,12 @@ class TestDataPackageSchema:
         assert "http" in error
 
 
-class TestDataPackageBuilder:
-    """Test the DataPackageBuilder class."""
+class TestMetaDataBuilder:
+    """Test the MetaDataBuilder class."""
     
     def test_basic_builder_workflow(self):
         """Test basic builder workflow."""
-        builder = DataPackageBuilder()
+        builder = MetaDataBuilder()
         
         # Set basic info
         builder.set_basic_info(
@@ -153,7 +153,7 @@ class TestDataPackageBuilder:
     
     def test_builder_validation(self):
         """Test builder validation."""
-        builder = DataPackageBuilder()
+        builder = MetaDataBuilder()
         
         # Should fail without name
         with pytest.raises(ValueError, match="package name"):
@@ -166,7 +166,7 @@ class TestDataPackageBuilder:
     
     def test_fluent_interface(self):
         """Test fluent interface chaining."""
-        metadata = (DataPackageBuilder()
+        metadata = (MetaDataBuilder()
                    .set_basic_info(name="fluent-test", title="Fluent Test")
                    .set_profile("tabular-data-package") 
                    .set_keywords(["test", "fluent"])
@@ -251,7 +251,7 @@ class TestCommonLicenses:
 if __name__ == "__main__":
     # Run basic tests
     test_schema = TestDataPackageSchema()
-    test_builder = TestDataPackageBuilder()
+    test_builder = TestMetaDataBuilder()
     test_field = TestFieldAndResource()
     test_licenses = TestCommonLicenses()
     

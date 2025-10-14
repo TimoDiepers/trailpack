@@ -10,7 +10,7 @@
   @staticmethod
   def build_from_dict(form_data: Dict[str, Any]) -> Dict[str, Any]:
       """Build metadata from complete form data (stateless)."""
-      builder = DataPackageBuilder()
+      builder = MetaDataBuilder()
 
       # Set basic info
       builder.set_basic_info(
