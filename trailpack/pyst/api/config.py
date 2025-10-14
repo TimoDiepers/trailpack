@@ -7,6 +7,7 @@ try:
 except ImportError:  # Streamlit not available outside the app
     st = None
 
+
 @dataclass
 class PystConfig:
     """Centralized PyST configuration"""
@@ -44,5 +45,27 @@ class PystConfig:
         )
 
 
-# Global config instance - loaded from environment variables
-config = PystConfig.from_env()
+# Global config instance - use lazy loading to ensure secrets are available
+_config: Optional[PystConfig] = None
+
+
+def get_config() -> PystConfig:
+    """Get or create the global config instance.
+    
+    Uses lazy loading to ensure Streamlit secrets are available when accessed.
+    """
+    global _config
+    if _config is None:
+        _config = PystConfig.from_env()
+    return _config
+
+
+# Backwards compatibility - config property that loads lazily
+class _ConfigProxy:
+    """Proxy object that loads config on first access."""
+    
+    def __getattr__(self, name):
+        return getattr(get_config(), name)
+
+
+config = _ConfigProxy()

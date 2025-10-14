@@ -95,12 +95,31 @@ This view object is stored in `st.session_state.view_object` and can be accessed
 
 ## Configuration
 
-The UI uses the same configuration as the rest of the trailpack package. Make sure to set up your `.env` file with the PyST API credentials:
+The UI uses the same configuration as the rest of the trailpack package. 
+
+### Local Development
+
+For local development, set up your `.env` file with the PyST API credentials:
 
 ```
 PYST_HOST=https://api.pyst.example.com
 PYST_AUTH_TOKEN=your_token_here
 ```
+
+### Streamlit Cloud Deployment
+
+When deploying to Streamlit Cloud:
+
+1. **Repository Setup**: Ensure your repository is pushed to GitHub
+2. **Secrets Configuration**: In the Streamlit Cloud dashboard, go to your app settings and add the following secrets:
+   ```toml
+   PYST_HOST = "https://your-pyst-api.example.com"
+   PYST_AUTH_TOKEN = "your_token_here"
+   ```
+3. **Requirements**: The `requirements.txt` file at the repository root lists all necessary dependencies
+4. **App Path**: Set the main file path to `trailpack/ui/streamlit_app.py`
+
+The configuration system automatically detects whether it's running locally (uses `.env` file) or on Streamlit Cloud (uses `st.secrets`).
 
 ## Architecture
 
