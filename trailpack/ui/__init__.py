@@ -1,5 +1,3 @@
-"""UI module for trailpack using Panel."""
+"""UI module for trailpack using Streamlit."""
 
-from trailpack.ui.simple_app import create_app
-
-__all__ = ["create_app"]
+__all__ = []

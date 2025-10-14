@@ -1,43 +1,33 @@
 # Trailpack UI
 
-A Panel-based web interface for mapping Excel columns to PyST concepts.
+A Streamlit-based web interface for mapping Excel columns to PyST concepts.
 
 ## Features
 
 - **Page 1**: Upload Excel file and select language for PyST concept mapping
-- **Page 2**: Select sheet from the uploaded Excel file
-- **Page 3**: Map columns to PyST concepts with automatic suggestions
+- **Page 2**: Select sheet from the uploaded Excel file with data preview
+- **Page 3**: Map columns to PyST concepts with automatic suggestions and dataframe preview
 
 ## Running the UI
 
-### Option 1: Using the simple_app module directly
+### Option 1: Using Streamlit directly
 
 ```bash
-cd trailpack
-python -m trailpack.ui.simple_app
+streamlit run trailpack/ui/streamlit_app.py
 ```
 
-The UI will be available at http://localhost:5006
-
-### Option 2: Using Panel serve
+### Option 2: Using the run script
 
 ```bash
-panel serve trailpack/ui/simple_app.py --show
+python trailpack/ui/run_streamlit.py
 ```
 
-### Option 3: From Python code
-
-```python
-import panel as pn
-from trailpack.ui import create_app
-
-app = create_app()
-pn.serve(app, port=5006, show=True)
-```
+The UI will be available at http://localhost:8501
 
 ## Requirements
 
-- panel >= 1.0.0
+- streamlit >= 1.28.0
+- pandas >= 2.0.0
 - openpyxl
 - httpx
 - python-dotenv
@@ -48,17 +38,26 @@ pn.serve(app, port=5006, show=True)
 
 1. **Upload File & Select Language**: Upload an Excel file (.xlsx, .xlsm, .xltx, .xltm) and select the language for PyST concept mapping from supported languages (en, de, es, fr, pt, it, da).
 
-2. **Select Sheet**: Choose which sheet from the Excel file you want to process.
+2. **Select Sheet**: Choose which sheet from the Excel file you want to process. Preview the data to ensure it's the correct sheet.
 
 3. **Map Columns**: For each column in the selected sheet:
-   - View sample values from the column
-   - See automatic PyST concept suggestions based on the column name
+   - View the dataframe preview at the top
+   - See sample values from each column
+   - View automatic PyST concept suggestions based on the column name
    - Select the most appropriate PyST concept mapping
-   - Generate a JSON view object with all mappings
+   - Finish to save mappings internally
+
+## Features
+
+- **Smooth Page Transitions**: Uses Streamlit's session state for seamless navigation
+- **Data Preview**: View the first entries of your dataframe before and during mapping
+- **Simplified Column Mapping**: Clean, table-like interface for mapping columns
+- **Internal View Object**: Mappings are stored internally in the correct format
+- **Progress Indicators**: Visual feedback on current step and completion status
 
 ## Output Format
 
-The UI generates a JSON view object with the following structure:
+The UI internally generates a view object with the following structure:
 
 ```json
 {
@@ -84,6 +83,8 @@ The UI generates a JSON view object with the following structure:
 }
 ```
 
+This view object is stored in `st.session_state.view_object` and can be accessed programmatically.
+
 ## Configuration
 
 The UI uses the same configuration as the rest of the trailpack package. Make sure to set up your `.env` file with the PyST API credentials:
@@ -95,8 +96,11 @@ PYST_AUTH_TOKEN=your_token_here
 
 ## Architecture
 
-The UI is built using Panel's FastListTemplate and consists of three main pages:
+The UI is built using Streamlit with the following features:
 
-- `simple_app.py`: Main application with state management and page navigation
-- Each page is rendered dynamically based on the current state
-- Asynchronous API calls fetch PyST suggestions without blocking the UI
+- `streamlit_app.py`: Main application with session state management
+- Smooth page transitions using `st.rerun()`
+- Asynchronous API calls for fetching PyST suggestions
+- Clean, responsive layout with sidebar navigation
+- Data preview on multiple pages
+- Internal view object generation (not displayed to user)
