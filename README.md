@@ -27,6 +27,49 @@ You can install _trailpack_ via [pip] from [PyPI]:
 $ pip install trailpack
 ```
 
+## Usage
+
+### Web UI
+
+Trailpack includes a Streamlit-based web UI for mapping Excel columns to PyST concepts:
+
+```bash
+# Run the UI
+streamlit run trailpack/ui/streamlit_app.py
+```
+
+Or using the run script:
+
+```bash
+python trailpack/ui/run_streamlit.py
+```
+
+The UI provides a 3-step workflow with smooth transitions:
+1. **Upload File & Select Language**: Upload an Excel file and select language for PyST mapping
+2. **Select Sheet**: Choose which sheet to process with data preview
+3. **Map Columns**: Map each column to PyST concepts with automatic suggestions and dataframe preview
+
+The view object is stored internally for further processing.
+
+For more details, see [trailpack/ui/README.md](trailpack/ui/README.md).
+
+### Python API
+
+You can also use trailpack programmatically:
+
+```python
+from trailpack.excel import ExcelReader
+from trailpack.pyst.api.client import get_suggest_client
+
+# Read Excel structure
+reader = ExcelReader("data.xlsx")
+sheets = reader.sheets()
+columns = reader.columns("Sheet1")
+
+# Get PyST suggestions
+client = get_suggest_client()
+suggestions = await client.suggest("carbon footprint", "en")
+```
 ## ✨ New: UI-Ready DataPackage Schema Classes
 
 This project now includes comprehensive schema classes for building data package metadata through user interfaces:
