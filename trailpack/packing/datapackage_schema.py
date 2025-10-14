@@ -1,13 +1,14 @@
 """
-DataPackage metadata schema and interactive builder classes.
+DataPackage metadata schema and interactive builder classes using Pydantic.
 Provides structured definitions and UI-friendly methods for creating
-Frictionless Data Package metadata.
+Frictionless Data Package metadata with automatic validation.
 """
 
 from typing import Dict, List, Any, Optional, Union
-from dataclasses import dataclass, field
+from pydantic import BaseModel, Field as PydanticField, field_validator, model_validator
 from enum import Enum
 import re
+import codecs
 from datetime import datetime
 
 
@@ -34,108 +35,173 @@ class ContributorRole(Enum):
     WRANGLER = "wrangler"
 
 
-@dataclass
-class License:
-    """License information."""
-
-    name: Optional[str] = "CC-BY-4.0"
-    title: Optional[str] = "Creative Commons Attribution 4.0 International License"
-    path: Optional[str] = "https://spdx.org/licenses/CC-BY-4.0.html"
-
+class License(BaseModel):
+    """License information with automatic validation."""
+    name: str = PydanticField(..., description="License identifier (e.g., 'CC-BY-4.0', 'MIT')")
+    title: Optional[str] = PydanticField(None, description="Human-readable license title")
+    path: Optional[str] = PydanticField(None, description="URL to license text")
+    
+    @field_validator('path')
+    @classmethod
+    def validate_path_url(cls, v):
+        """Validate URL format."""
+        if v and not v.startswith(('http://', 'https://')):
+            raise ValueError('License path must be a valid http or https URL')
+        return v
+    
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary format."""
+        """Convert to dictionary format, excluding None values."""
+        return self.dict(exclude_none=True)
+
+
+class Contributor(BaseModel):
+    """Contributor information with validation."""
+    name: str = PydanticField(..., description="Contributor name")
+    role: str = PydanticField("author", description="Contributor role")
+    email: Optional[str] = PydanticField(None, description="Contact email address")
+    organization: Optional[str] = PydanticField(None, description="Organization or affiliation")
+    
+    @field_validator('email')
+    @classmethod
+    def validate_email(cls, v):
+        """Basic email validation."""
+        if v and '@' not in v:
+            raise ValueError('Email must contain @ symbol')
+        return v
+    
+    @field_validator('role')
+    @classmethod
+    def validate_role(cls, v):
+        """Validate role is from accepted list."""
+        valid_roles = ["author", "contributor", "maintainer", "publisher", "wrangler"]
+        if v not in valid_roles:
+            raise ValueError(f'Role must be one of: {", ".join(valid_roles)}')
+        return v
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary format, excluding None values."""
+        return self.dict(exclude_none=True)
+
+
+class Source(BaseModel):
+    """Data source information with validation."""
+    title: str = PydanticField(..., description="Source title")
+    path: Optional[str] = PydanticField(None, description="Path to source data")
+    description: Optional[str] = PydanticField(None, description="Source description")
+    
+    @field_validator('path')
+    @classmethod
+    def validate_path(cls, v):
+        """Basic path validation."""
+        if v and not (v.startswith(('http://', 'https://', 'file://')) or v.startswith('./')):
+            # Allow relative paths, URLs, and file:// schemes
+            pass
+        return v
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary format, excluding None values."""
+        return self.dict(exclude_none=True)
+
+
+class Unit(BaseModel):
+    """Unit of measurement with QUDT vocabulary support."""
+    name: str = PydanticField(..., description="Short unit name (e.g., 'kg', 'm', 'celsius')")
+    long_name: Optional[str] = PydanticField(None, description="Full unit name (e.g., 'kilogram', 'meter', 'degree Celsius')")
+    path: Optional[str] = PydanticField(None, description="QUDT or other vocabulary URI")
+    
+    @field_validator('path')
+    @classmethod
+    def validate_path_url(cls, v):
+        """Validate URI format."""
+        if v and not v.startswith(('http://', 'https://')):
+            raise ValueError('Unit path must be a valid http or https URI')
+        return v
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary format for metadata."""
         result = {"name": self.name}
-        if self.title:
-            result["title"] = self.title
+        if self.long_name:
+            result["longName"] = self.long_name
         if self.path:
             result["path"] = self.path
         return result
 
 
-@dataclass
-class Contributor:
-    """Contributor information."""
-
-    name: str
-    role: str = "author"
-    email: Optional[str] = None
-    organization: Optional[str] = None
-
+class FieldConstraints(BaseModel):
+    """Field validation constraints with validation."""
+    required: Optional[bool] = PydanticField(None, description="Field is required")
+    unique: Optional[bool] = PydanticField(None, description="Field values must be unique")
+    minimum: Optional[Union[int, float]] = PydanticField(None, description="Minimum value")
+    maximum: Optional[Union[int, float]] = PydanticField(None, description="Maximum value")
+    pattern: Optional[str] = PydanticField(None, description="Regular expression pattern")
+    enum: Optional[List[str]] = PydanticField(None, description="Allowed values")
+    
+    @field_validator('minimum', 'maximum')
+    @classmethod
+    def validate_numeric_constraints(cls, v, info):
+        """Validate numeric constraints."""
+        if v is not None and info.field_name == 'maximum':
+            # Note: We can't access 'minimum' here in v2, so we'll skip cross-field validation
+            # Use model_validator for cross-field validation if needed
+            pass
+        return v
+    
+    @field_validator('pattern')
+    @classmethod
+    def validate_pattern(cls, v):
+        """Validate regex pattern."""
+        if v:
+            try:
+                re.compile(v)
+            except re.error as e:
+                raise ValueError(f'Invalid regex pattern: {e}') from e
+        return v
+    
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary format."""
-        result = {"name": self.name, "role": self.role}
-        if self.email:
-            result["email"] = self.email
-        if self.organization:
-            result["organization"] = self.organization
-        return result
+        """Convert to dictionary format, excluding None values."""
+        return self.dict(exclude_none=True)
 
 
-@dataclass
-class Source:
-    """Data source information."""
-
-    title: str
-    path: Optional[str] = None
-    description: Optional[str] = None
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary format."""
-        result = {"title": self.title}
-        if self.path:
-            result["path"] = self.path
-        if self.description:
-            result["description"] = self.description
-        return result
-
-
-@dataclass
-class FieldConstraints:
-    """Field validation constraints."""
-
-    required: Optional[bool] = None
-    unique: Optional[bool] = None
-    minimum: Optional[Union[int, float]] = None
-    maximum: Optional[Union[int, float]] = None
-    pattern: Optional[str] = None
-    enum: Optional[List[str]] = None
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary format."""
-        result = {}
-        for key, value in self.__dict__.items():
-            if value is not None:
-                result[key] = value
-        return result
-
-
-@dataclass
-class Field:
-    """Data field schema definition."""
-
-    name: str
-    type: str
-    description: Optional[str] = None
-    unit: Optional[str] = None
-    unit_code: Optional[str] = None
-    rdf_type: Optional[str] = None
-    taxonomy_url: Optional[str] = None
-    constraints: Optional[FieldConstraints] = None
+class Field(BaseModel):
+    """Data field schema definition with validation."""
+    name: str = PydanticField(..., description="Field name")
+    type: str = PydanticField(..., description="Field type")
+    description: Optional[str] = PydanticField(None, description="Field description")
+    unit: Optional[Unit] = PydanticField(None, description="Unit of measurement")
+    rdf_type: Optional[str] = PydanticField(None, description="RDF type URI")
+    taxonomy_url: Optional[str] = PydanticField(None, description="Taxonomy URL")
+    constraints: Optional[FieldConstraints] = PydanticField(None, description="Field constraints")
+    
+    @field_validator('type')
+    @classmethod
+    def validate_field_type(cls, v):
+        """Validate field type is from accepted list."""
+        valid_types = ["string", "number", "integer", "boolean", "date", "datetime", "time", "duration", "geopoint", "geojson", "object", "array", "any"]
+        if v not in valid_types:
+            raise ValueError(f'Field type must be one of: {", ".join(valid_types)}')
+        return v
+    
+    @model_validator(mode='after')
+    def validate_numeric_has_unit(self):
+        """Validate that numeric fields have a unit."""
+        if self.type in ['number', 'integer'] and self.unit is None:
+            raise ValueError(f'Field "{self.name}" has numeric type "{self.type}" but no unit specified. Numeric fields must have a unit.')
+        return self
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary format."""
         result = {"name": self.name, "type": self.type}
-
+        
+        # Add optional fields
         if self.description:
-            result["description"] = self.description
+            result['description'] = self.description
         if self.unit:
-            result["unit"] = self.unit
-        if self.unit_code:
-            result["unitCode"] = self.unit_code
+            result['unit'] = self.unit.to_dict()
         if self.rdf_type:
-            result["rdfType"] = self.rdf_type
+            result['rdfType'] = self.rdf_type
         if self.taxonomy_url:
-            result["taxonomyUrl"] = self.taxonomy_url
+            result['taxonomyUrl'] = self.taxonomy_url
+                
         if self.constraints:
             constraints_dict = self.constraints.to_dict()
             if constraints_dict:
@@ -144,40 +210,58 @@ class Field:
         return result
 
 
-@dataclass
-class Resource:
-    """Data resource (file) definition."""
-
-    name: str
-    path: str
-    title: Optional[str] = None
-    description: Optional[str] = None
-    format: Optional[str] = None
-    mediatype: Optional[str] = None
-    encoding: str = "utf-8"
-    profile: Optional[str] = None
-    fields: List[Field] = field(default_factory=list)
-    primary_key: List[str] = field(default_factory=list)
+class Resource(BaseModel):
+    """Data resource (file) definition with validation."""
+    name: str = PydanticField(..., description="Resource name")
+    path: str = PydanticField(..., description="Path to resource")
+    title: Optional[str] = PydanticField(None, description="Resource title")
+    description: Optional[str] = PydanticField(None, description="Resource description")
+    format: Optional[str] = PydanticField(None, description="File format")
+    mediatype: Optional[str] = PydanticField(None, description="Media type")
+    encoding: str = PydanticField("utf-8", description="Text encoding")
+    profile: Optional[str] = PydanticField(None, description="Resource profile")
+    fields: List[Field] = PydanticField(default_factory=list, description="Field definitions")
+    primary_key: List[str] = PydanticField(default_factory=list, description="Primary key fields")
+    
+    @field_validator('format')
+    @classmethod
+    def validate_format(cls, v):
+        """Validate format is recognized."""
+        # Allow any format - validation can be extended as needed
+        return v
+    
+    @field_validator('encoding')
+    @classmethod  
+    def validate_encoding(cls, v):
+        """Validate encoding is valid."""
+        try:
+            codecs.lookup(v)
+        except LookupError as exc:
+            raise ValueError(f'Invalid encoding: {v}') from exc
+        return v
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary format."""
-        result = {"name": self.name, "path": self.path}
-
-        if self.title:
-            result["title"] = self.title
-        if self.description:
-            result["description"] = self.description
-        if self.format:
-            result["format"] = self.format
-        if self.mediatype:
-            result["mediatype"] = self.mediatype
+        result: Dict[str, Any] = {"name": self.name, "path": self.path}
+        
+        # Add optional fields
+        optional_fields = {
+            'title': self.title,
+            'description': self.description,
+            'format': self.format,
+            'mediatype': self.mediatype,
+            'profile': self.profile
+        }
+        
+        for key, value in optional_fields.items():
+            if value:
+                result[key] = value
+                
         if self.encoding != "utf-8":
             result["encoding"] = self.encoding
-        if self.profile:
-            result["profile"] = self.profile
 
         if self.fields:
-            schema = {"fields": [field.to_dict() for field in self.fields]}
+            schema: Dict[str, Any] = {"fields": [field.to_dict() for field in self.fields]}
             if self.primary_key:
                 schema["primaryKey"] = self.primary_key
             result["schema"] = schema
@@ -364,7 +448,7 @@ class MetaDataBuilder:
         self.set_dates()  # Automatically set creation date
 
     def set_basic_info(
-        self, name: str, title: str = None, description: str = None, version: str = None
+        self, name: str, title: Optional[str] = None, description: Optional[str] = None, version: Optional[str] = None
     ) -> "MetaDataBuilder":
         """Set basic package information."""
         # Validate required name
@@ -394,14 +478,17 @@ class MetaDataBuilder:
         """Set keywords/tags."""
         self.metadata["keywords"] = keywords
         return self
-
-    def set_dates(self) -> "MetaDataBuilder":
-        """Set creation date to the current date."""
-        self.metadata["created"] = datetime.now().isoformat()
+    
+    def set_dates(self, created: Optional[str] = None, modified: Optional[str] = None) -> 'DataPackageBuilder':
+        """Set creation and modification dates."""
+        if created:
+            self.metadata["created"] = created
+        if modified:
+            self.metadata["modified"] = modified
         return self
 
     def set_links(
-        self, homepage: str = None, repository: str = None
+        self, homepage: Optional[str] = None, repository: Optional[str] = None
     ) -> "MetaDataBuilder":
         """Set homepage and repository URLs."""
         if homepage:
@@ -419,7 +506,7 @@ class MetaDataBuilder:
         return self
 
     def add_license(
-        self, name: str = None, title: str = None, path: str = None
+        self, name: Optional[str] = None, title: Optional[str] = None, path: Optional[str] = None
     ) -> "MetaDataBuilder":
         """Add license information. Defaults to CC-BY-4.0 if no name provided.
         License name should be a valid SPDX identifier.
@@ -437,8 +524,8 @@ class MetaDataBuilder:
         self,
         name: str,
         role: str = "author",
-        email: str = None,
-        organization: str = None,
+        email: Optional[str] = None,
+        organization: Optional[str] = None,
     ) -> "MetaDataBuilder":
         """Add contributor information."""
         contributor = Contributor(
@@ -448,7 +535,7 @@ class MetaDataBuilder:
         return self
 
     def add_source(
-        self, title: str, path: str = None, description: str = None
+        self, title: str, path: Optional[str] = None, description: Optional[str] = None
     ) -> "MetaDataBuilder":
         """Add data source information."""
         source = Source(title=title, path=path, description=description)
@@ -537,7 +624,12 @@ FIELD_TEMPLATES = {
         name="id",
         type="integer",
         description="Unique identifier",
-        constraints=FieldConstraints(required=True, unique=True),
+        unit=Unit(
+            name="NUM",
+            long_name="dimensionless number",
+            path="https://vocab.sentier.dev/web/concept/https%3A//vocab.sentier.dev/units/unit/NUM?concept_scheme=https%3A%2F%2Fvocab.sentier.dev%2Funits%2F&language=en"
+        ),
+        constraints=FieldConstraints(required=True, unique=True)
     ),
     "name": Field(
         name="name",
@@ -549,8 +641,11 @@ FIELD_TEMPLATES = {
         name="latitude",
         type="number",
         description="Decimal latitude (WGS84)",
-        unit="deg",
-        unit_code="http://qudt.org/vocab/unit/DEG",
+        unit=Unit(
+            name="deg",
+            long_name="degree",
+            path="http://qudt.org/vocab/unit/DEG"
+        ),
         rdf_type="http://www.w3.org/2003/01/geo/wgs84_pos#lat",
         constraints=FieldConstraints(minimum=-90.0, maximum=90.0),
     ),
@@ -558,8 +653,11 @@ FIELD_TEMPLATES = {
         name="longitude",
         type="number",
         description="Decimal longitude (WGS84)",
-        unit="deg",
-        unit_code="http://qudt.org/vocab/unit/DEG",
+        unit=Unit(
+            name="deg",
+            long_name="degree",
+            path="http://qudt.org/vocab/unit/DEG"
+        ),
         rdf_type="http://www.w3.org/2003/01/geo/wgs84_pos#long",
         constraints=FieldConstraints(minimum=-180.0, maximum=180.0),
     ),
