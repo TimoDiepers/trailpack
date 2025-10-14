@@ -2,15 +2,21 @@
 
 import os
 import pytest
+from pathlib import Path
 from unittest.mock import Mock, patch
 import importlib.util
 
 
 def load_config_module():
     """Load config module directly without importing the package."""
+    # Get the path relative to the test file
+    test_dir = Path(__file__).parent
+    repo_root = test_dir.parent
+    config_path = repo_root / 'trailpack' / 'pyst' / 'api' / 'config.py'
+    
     spec = importlib.util.spec_from_file_location(
         'config',
-        'trailpack/pyst/api/config.py'
+        str(config_path)
     )
     config_module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(config_module)
