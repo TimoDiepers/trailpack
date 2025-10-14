@@ -13,6 +13,7 @@ import openpyxl
 from trailpack.excel import ExcelReader
 from trailpack.pyst.api.requests.suggest import SUPPORTED_LANGUAGES
 from trailpack.pyst.api.client import get_suggest_client
+from trailpack.packing.datapackage_schema import DataPackageSchema
 
 
 # Page configuration
@@ -48,6 +49,8 @@ if "suggestions_cache" not in st.session_state:
     st.session_state.suggestions_cache = {}
 if "view_object" not in st.session_state:
     st.session_state.view_object = {}
+if "general_details" not in st.session_state:
+    st.session_state.general_details = {}
 
 
 def navigate_to(page: int):
@@ -216,9 +219,14 @@ with st.sidebar:
         st.markdown("⬜ 2. Select Sheet")
 
     if st.session_state.page >= 3:
-        st.markdown("▶️ **3. Map Columns**")
+        st.markdown("✅ **3. Map Columns**" if st.session_state.page > 3 else "▶️ **3. Map Columns**")
     else:
         st.markdown("⬜ 3. Map Columns")
+
+    if st.session_state.page >= 4:
+        st.markdown("▶️ **4. General Details**")
+    else:
+        st.markdown("⬜ 4. General Details")
     
     st.markdown("---")
     
@@ -459,26 +467,224 @@ elif st.session_state.page == 3:
                 navigate_to(2)
         
         with col3:
+            if st.button("✅ Next ➡️", type="primary", use_container_width=True):
+                # Generate view object internally (not displayed)
+                st.session_state.view_object = generate_view_object()
+                navigate_to(4)
+
+
+# Page 4: General Details
+elif st.session_state.page == 4:
+    st.title("Step 4: General Details")
+    st.markdown("Provide metadata for your data package.")
+    
+    # Initialize schema
+    schema = DataPackageSchema()
+    
+    # Get field definitions for the form
+    field_defs = schema.field_definitions
+    
+    st.markdown("### Basic Information")
+    
+    # Package Name (required)
+    name_field = field_defs.get("name", {})
+    package_name = st.text_input(
+        name_field.get("label", "Package Name"),
+        value=st.session_state.general_details.get("name", ""),
+        placeholder=name_field.get("placeholder", ""),
+        help=name_field.get("help", name_field.get("description", "")),
+        key="input_name"
+    )
+    
+    # Validate package name in real-time if not empty
+    if package_name:
+        is_valid, error_msg = schema.validate_package_name(package_name)
+        if not is_valid:
+            st.error(f"❌ {error_msg}")
+        else:
+            st.session_state.general_details["name"] = package_name
+    elif package_name == "":
+        # Clear from session state if empty
+        st.session_state.general_details.pop("name", None)
+    
+    # Title (optional)
+    title_field = field_defs.get("title", {})
+    title = st.text_input(
+        title_field.get("label", "Title"),
+        value=st.session_state.general_details.get("title", ""),
+        placeholder=title_field.get("placeholder", ""),
+        help=title_field.get("description", ""),
+        key="input_title"
+    )
+    if title:
+        st.session_state.general_details["title"] = title
+    elif title == "":
+        st.session_state.general_details.pop("title", None)
+    
+    # Description (optional)
+    desc_field = field_defs.get("description", {})
+    description = st.text_area(
+        desc_field.get("label", "Description"),
+        value=st.session_state.general_details.get("description", ""),
+        placeholder=desc_field.get("placeholder", ""),
+        help=desc_field.get("description", ""),
+        key="input_description"
+    )
+    if description:
+        st.session_state.general_details["description"] = description
+    elif description == "":
+        st.session_state.general_details.pop("description", None)
+    
+    # Version (optional)
+    version_field = field_defs.get("version", {})
+    version = st.text_input(
+        version_field.get("label", "Version"),
+        value=st.session_state.general_details.get("version", ""),
+        placeholder=version_field.get("placeholder", ""),
+        help=version_field.get("description", ""),
+        key="input_version"
+    )
+    
+    # Validate version if not empty
+    if version:
+        is_valid, error_msg = schema.validate_version(version)
+        if not is_valid:
+            st.error(f"❌ {error_msg}")
+        else:
+            st.session_state.general_details["version"] = version
+    elif version == "":
+        st.session_state.general_details.pop("version", None)
+    
+    st.markdown("### Additional Information")
+    
+    # Profile (optional)
+    profile_field = field_defs.get("profile", {})
+    profile_options = profile_field.get("options", [])
+    profile_labels = [opt["label"] for opt in profile_options]
+    profile_values = [opt["value"] for opt in profile_options]
+    
+    current_profile = st.session_state.general_details.get("profile", profile_field.get("default", ""))
+    default_index = 0
+    if current_profile in profile_values:
+        default_index = profile_values.index(current_profile)
+    
+    profile_label = st.selectbox(
+        profile_field.get("label", "Profile"),
+        options=profile_labels,
+        index=default_index,
+        help=profile_field.get("description", ""),
+        key="input_profile"
+    )
+    
+    profile = profile_values[profile_labels.index(profile_label)]
+    st.session_state.general_details["profile"] = profile
+    
+    # Keywords (optional)
+    keywords_field = field_defs.get("keywords", {})
+    keywords_str = st.text_input(
+        keywords_field.get("label", "Keywords"),
+        value=", ".join(st.session_state.general_details.get("keywords", [])),
+        placeholder=keywords_field.get("placeholder", ""),
+        help=keywords_field.get("description", "") + " (comma-separated)",
+        key="input_keywords"
+    )
+    if keywords_str:
+        keywords = [k.strip() for k in keywords_str.split(",") if k.strip()]
+        st.session_state.general_details["keywords"] = keywords
+    elif keywords_str == "":
+        st.session_state.general_details.pop("keywords", None)
+    
+    # Homepage (optional)
+    homepage_field = field_defs.get("homepage", {})
+    homepage = st.text_input(
+        homepage_field.get("label", "Homepage"),
+        value=st.session_state.general_details.get("homepage", ""),
+        placeholder=homepage_field.get("placeholder", ""),
+        help=homepage_field.get("description", ""),
+        key="input_homepage"
+    )
+    
+    # Validate homepage if not empty
+    if homepage:
+        is_valid, error_msg = schema.validate_url(homepage)
+        if not is_valid:
+            st.error(f"❌ {error_msg}")
+        else:
+            st.session_state.general_details["homepage"] = homepage
+    elif homepage == "":
+        st.session_state.general_details.pop("homepage", None)
+    
+    # Repository (optional)
+    repository_field = field_defs.get("repository", {})
+    repository = st.text_input(
+        repository_field.get("label", "Repository"),
+        value=st.session_state.general_details.get("repository", ""),
+        placeholder=repository_field.get("placeholder", ""),
+        help=repository_field.get("description", ""),
+        key="input_repository"
+    )
+    
+    # Validate repository if not empty
+    if repository:
+        is_valid, error_msg = schema.validate_url(repository)
+        if not is_valid:
+            st.error(f"❌ {error_msg}")
+        else:
+            st.session_state.general_details["repository"] = repository
+    elif repository == "":
+        st.session_state.general_details.pop("repository", None)
+    
+    # Navigation
+    col1, col2, col3 = st.columns([1, 1, 1])
+    
+    with col1:
+        if st.button("⬅️ Back", use_container_width=True):
+            navigate_to(3)
+    
+    with col3:
+        # Check if required fields are filled
+        has_required_fields = "name" in st.session_state.general_details
+        
+        # Check if all filled fields are valid
+        all_valid = True
+        if "name" in st.session_state.general_details:
+            is_valid, _ = schema.validate_package_name(st.session_state.general_details["name"])
+            all_valid = all_valid and is_valid
+        if "version" in st.session_state.general_details:
+            is_valid, _ = schema.validate_version(st.session_state.general_details["version"])
+            all_valid = all_valid and is_valid
+        if "homepage" in st.session_state.general_details:
+            is_valid, _ = schema.validate_url(st.session_state.general_details["homepage"])
+            all_valid = all_valid and is_valid
+        if "repository" in st.session_state.general_details:
+            is_valid, _ = schema.validate_url(st.session_state.general_details["repository"])
+            all_valid = all_valid and is_valid
+        
+        if has_required_fields and all_valid:
             if st.button("✅ Finish", type="primary", use_container_width=True):
-                st.success("✅ Column mappings completed!")
+                st.success("✅ All information collected successfully!")
                 st.balloons()
                 
-                # Show completion message
-                st.info("Mappings have been saved internally. The view object is available for further processing.")
+                # Show completion summary
+                st.info("All mappings and metadata have been saved internally. The data is ready for further processing.")
                 
-                # Optional: Show a summary
-                with st.expander("📝 Mapping Summary"):
+                # Show summary
+                with st.expander("📝 Summary", expanded=True):
+                    st.markdown("**Column Mappings:**")
+                    columns = st.session_state.reader.columns(st.session_state.selected_sheet)
                     mapped_count = sum(1 for v in st.session_state.column_mappings.values() if v is not None)
                     st.metric("Columns Mapped", f"{mapped_count} / {len(columns)}")
                     
-                    # Show which columns are mapped
-                    for col, mapping_id in st.session_state.column_mappings.items():
-                        if mapping_id:
-                            suggestions = st.session_state.suggestions_cache.get(col, [])
-                            mapping_label = next((s['label'] for s in suggestions if s['id'] == mapping_id), mapping_id)
-                            st.markdown(f"- **{col}** → {mapping_label}")
+                    st.markdown("**General Details:**")
+                    for key, value in st.session_state.general_details.items():
+                        if isinstance(value, list):
+                            st.markdown(f"- **{key.title()}:** {', '.join(value)}")
                         else:
-                            st.markdown(f"- **{col}** → *(No mapping)*")
+                            st.markdown(f"- **{key.title()}:** {value}")
+        else:
+            st.button("✅ Finish", type="primary", disabled=True, use_container_width=True)
+            if not has_required_fields:
+                st.warning("⚠️ Please fill in the required field: Package Name")
 
 
 # Footer
