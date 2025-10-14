@@ -421,7 +421,7 @@ class DataPackageSchema:
         return True, ""
 
 
-class MetaDataBuilder:
+class Meta:
     """
     Interactive builder for creating DataPackage metadata.
     Can be used with UI frameworks to collect user input.
@@ -472,7 +472,7 @@ class MetaDataBuilder:
     
     def set_dates(self) -> 'MetaDataBuilder':
         """Set creation date to current time"""
-        self.metadata["created"] = datetime.datetime.now().isoformat()
+        self.metadata["created"] = datetime.now().isoformat()
         return self
 
     def set_links(
