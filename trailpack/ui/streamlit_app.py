@@ -11,6 +11,7 @@ if str(_repo_root) not in sys.path:
     sys.path.insert(0, str(_repo_root))
 
 import asyncio
+import base64
 import tempfile
 import json
 from typing import Dict, List, Optional, Any
@@ -26,11 +27,20 @@ from trailpack.pyst.api.client import get_suggest_client
 from trailpack.packing.datapackage_schema import DataPackageSchema, COMMON_LICENSES
 
 
+ICON_PATH = Path(__file__).parent / "icon.svg"
+PAGE_ICON = str(ICON_PATH) if ICON_PATH.is_file() else "🎒"
+LOGO_BASE64 = (
+    base64.b64encode(ICON_PATH.read_bytes()).decode("utf-8")
+    if ICON_PATH.is_file()
+    else None
+)
+
+
 # Page configuration
 
 st.set_page_config(
     page_title="Trailpack - Excel to PyST Mapper",
-    page_icon="🎒",
+    page_icon=PAGE_ICON,
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -61,6 +71,29 @@ if "view_object" not in st.session_state:
     st.session_state.view_object = {}
 if "general_details" not in st.session_state:
     st.session_state.general_details = {}
+
+
+def render_sidebar_header():
+    """Render the Trailpack branding block in the sidebar."""
+    if LOGO_BASE64:
+        st.markdown(
+            f"""
+            <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.5rem;">
+                <img src="data:image/svg+xml;base64,{LOGO_BASE64}" alt="Trailpack logo"
+                     style="width:56px;height:auto;" />
+                <div style="display:flex;flex-direction:column;">
+                    <span style="font-size:1.3rem;font-weight:600;line-height:1;">Trailpack</span>
+                    <span style="font-size:0.95rem;color:#6b7280;line-height:1.2;">
+                        Excel to PyST Mapper
+                    </span>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    else:
+        st.title("🎒 Trailpack")
+        st.markdown("### Excel to PyST Mapper")
 
 
 def navigate_to(page: int):
@@ -211,8 +244,7 @@ def generate_view_object() -> Dict[str, Any]:
 
 # ===== SIDEBAR =====
 with st.sidebar:
-    st.title("🎒 Trailpack")
-    st.markdown("### Excel to PyST Mapper")
+    render_sidebar_header()
     st.markdown("---")
     
     st.markdown("### Steps:")
