@@ -1,6 +1,17 @@
 from dataclasses import dataclass
 from typing import Optional
 import os
+from pathlib import Path
+
+# Load .env file if it exists
+try:
+    from dotenv import load_dotenv
+    # Look for .env file in project root
+    env_path = Path(__file__).parent.parent.parent.parent / ".env"
+    if env_path.exists():
+        load_dotenv(env_path)
+except ImportError:
+    pass  # python-dotenv not installed
 
 try:
     import streamlit as st

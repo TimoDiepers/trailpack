@@ -10,6 +10,16 @@ _repo_root = _current_dir.parent.parent
 if str(_repo_root) not in sys.path:
     sys.path.insert(0, str(_repo_root))
 
+# Load .env file before importing any trailpack modules
+try:
+    from dotenv import load_dotenv
+    env_path = _repo_root / ".env"
+    if env_path.exists():
+        load_dotenv(env_path)
+        print(f"Loaded .env from: {env_path}")
+except ImportError:
+    print("python-dotenv not installed, skipping .env loading")
+
 import asyncio
 import tempfile
 import json
@@ -170,10 +180,10 @@ def generate_view_object() -> Dict[str, Any]:
         for s in suggestions:
             try:
                 if isinstance(s, dict):
-                    s_id = s.get('id') or s.get('uri') or s.get('concept_id')
+                    s_id = s.get('id') or s.get('id_') or s.get('uri') or s.get('concept_id')
                     s_label = s.get('label') or s.get('name') or s.get('title')
                 else:
-                    s_id = getattr(s, 'id', None) or getattr(s, 'uri', None)
+                    s_id = getattr(s, 'id', None) or getattr(s, 'id_', None) or getattr(s, 'uri', None)
                     s_label = getattr(s, 'label', None) or getattr(s, 'name', None)
 
                 if s_id and s_label:
@@ -392,93 +402,80 @@ elif st.session_state.page == 3:
             st.dataframe(st.session_state.df.head(20), use_container_width=True)
         
         st.markdown("### Column Mappings")
-        st.markdown("Select a PyST concept for each column. Suggestions are generated automatically based on column names.")
+        st.markdown("Select a PyST concept for each column.")
 
         # Get column names from ExcelReader (consistent with sheet selection on Page 2)
         columns = st.session_state.reader.columns(st.session_state.selected_sheet)
-        
-        # Fetch suggestions for all columns if not already cached
-        if not st.session_state.suggestions_cache:
-            with st.spinner("Fetching PyST suggestions for all columns..."):
-                progress_bar = st.progress(0)
-                for idx, column in enumerate(columns):
-                    if column not in st.session_state.suggestions_cache:
-                        suggestions = fetch_suggestions_sync(column, st.session_state.language)
-                        st.session_state.suggestions_cache[column] = suggestions
-                    progress_bar.progress((idx + 1) / len(columns))
-                progress_bar.empty()
-                st.success("✅ Suggestions loaded!")
-        
+
         # Display column mappings in a clean table-like format
         st.markdown("---")
-        
+
         for column in columns:
             with st.container():
                 col1, col2 = st.columns([1, 2])
-                
+
                 with col1:
                     st.markdown(f"**{column}**")
                     # Show sample values
                     sample_values = st.session_state.df[column].dropna().head(3).astype(str).tolist()
                     if sample_values:
                         st.caption(f"Sample: {', '.join(sample_values[:3])}")
-                
+
                 with col2:
-                    suggestions = st.session_state.suggestions_cache.get(column, [])
+                    # Search field - type and press Enter
+                    search_query = st.text_input(
+                        "Search for ontology",
+                        key=f"search_{column}",
+                        placeholder="Type and press Enter to search...",
+                        label_visibility="visible"
+                    )
 
-                    if suggestions:
-                        # Filter out invalid suggestions and create options
-                        # Handle both dict-like and object-like suggestion formats
-                        valid_suggestions = []
-                        for s in suggestions:
-                            try:
-                                # Try to get id and label with different access methods
-                                if isinstance(s, dict):
-                                    s_id = s.get('id') or s.get('uri') or s.get('concept_id')
-                                    s_label = s.get('label') or s.get('name') or s.get('title')
-                                else:
-                                    s_id = getattr(s, 'id', None) or getattr(s, 'uri', None)
-                                    s_label = getattr(s, 'label', None) or getattr(s, 'name', None)
+                    # Fetch and display suggestions when search query exists (>= 2 chars)
+                    if search_query and len(search_query) >= 2:
+                        cache_key = f"{column}_{search_query}"
+                        if cache_key not in st.session_state.suggestions_cache:
+                            suggestions = fetch_suggestions_sync(search_query, st.session_state.language)
+                            st.session_state.suggestions_cache[cache_key] = suggestions[:5]  # Limit to 5
 
-                                if s_id and s_label:
-                                    valid_suggestions.append({'id': s_id, 'label': s_label})
-                            except Exception:
-                                # Skip suggestions we can't parse
-                                continue
-
-                        if valid_suggestions:
-                            # Create options for selectbox
-                            options = ["(No mapping)"] + [f"{s['label']} (ID: {s['id']})" for s in valid_suggestions]
-                            option_ids = [None] + [s['id'] for s in valid_suggestions]
-                        else:
-                            # No valid suggestions found
-                            st.warning(f"No valid suggestions for '{column}'")
-                            st.session_state.column_mappings[column] = None
+                        # Show suggestions dropdown
+                        suggestions = st.session_state.suggestions_cache.get(cache_key, [])
+                        if suggestions:
                             valid_suggestions = []
-                            options = ["(No mapping)"]
-                            option_ids = [None]
-                        
-                        # Get current selection
-                        current_value = st.session_state.column_mappings.get(column)
-                        default_index = 0
-                        if current_value and current_value in option_ids:
-                            default_index = option_ids.index(current_value)
-                        
-                        selected_option = st.selectbox(
-                            f"PyST Mapping for {column}",
-                            options=options,
-                            index=default_index,
-                            key=f"mapping_{column}",
-                            label_visibility="collapsed"
-                        )
-                        
-                        # Store the selected ID
-                        selected_idx = options.index(selected_option)
-                        st.session_state.column_mappings[column] = option_ids[selected_idx]
-                    else:
-                        st.warning("No suggestions available")
-                        st.session_state.column_mappings[column] = None
-                
+                            for s in suggestions:
+                                try:
+                                    if isinstance(s, dict):
+                                        s_id = s.get('id') or s.get('id_') or s.get('uri') or s.get('concept_id')
+                                        s_label = s.get('label') or s.get('name') or s.get('title')
+                                    else:
+                                        s_id = getattr(s, 'id', None) or getattr(s, 'id_', None) or getattr(s, 'uri', None)
+                                        s_label = getattr(s, 'label', None) or getattr(s, 'name', None)
+                                    if s_id and s_label:
+                                        valid_suggestions.append({'id': s_id, 'label': s_label})
+                                except Exception:
+                                    continue
+
+                            if valid_suggestions:
+                                options = [s['label'] for s in valid_suggestions]
+                                option_ids = [s['id'] for s in valid_suggestions]
+
+                                # Get current selection index
+                                current_mapping = st.session_state.column_mappings.get(column)
+                                default_idx = 0
+                                if current_mapping in option_ids:
+                                    default_idx = option_ids.index(current_mapping)
+
+                                selected = st.selectbox(
+                                    "Select from results",
+                                    options=options,
+                                    index=default_idx,
+                                    key=f"select_{column}",
+                                    label_visibility="visible"
+                                )
+
+                                # Store selection
+                                selected_idx = options.index(selected)
+                                st.session_state.column_mappings[column] = option_ids[selected_idx]
+
                 st.markdown("---")
         
         # Generate view object internally (not displayed)

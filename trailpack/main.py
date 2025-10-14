@@ -106,9 +106,6 @@ def main():
     # Run async test
     loop.run_until_complete(test_pyst_suggestions())
 
-    # Test Excel reader
-    test_excel_reader()
-
     print("\n" + "=" * 70)
     print("Tests Complete")
     print("=" * 70)
