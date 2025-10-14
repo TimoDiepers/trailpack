@@ -1,4 +1,4 @@
-# trailpaack
+# trailpack
 
 [![PyPI](https://img.shields.io/pypi/v/trailpaack.svg)][pypi status]
 [![Status](https://img.shields.io/pypi/status/trailpaack.svg)][pypi status]
