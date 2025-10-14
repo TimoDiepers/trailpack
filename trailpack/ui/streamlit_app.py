@@ -16,12 +16,14 @@ from trailpack.pyst.api.client import get_suggest_client
 
 
 # Page configuration
+
 st.set_page_config(
     page_title="Trailpack - Excel to PyST Mapper",
-    page_icon="🗺️",
+    page_icon="🎒",
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
 
 # Initialize session state
 if "page" not in st.session_state:
@@ -54,6 +56,17 @@ def navigate_to(page: int):
     st.rerun()
 
 
+def on_sheet_change():
+    """Callback when sheet selection changes. Clears cached data."""
+    # This runs BEFORE the page renders, so sidebar will show updated sheet name
+    selected = st.session_state.get("sheet_radio")
+    if selected and selected != st.session_state.selected_sheet:
+        st.session_state.selected_sheet = selected
+        st.session_state.suggestions_cache = {}
+        st.session_state.column_mappings = {}
+        st.session_state.view_object = {}
+
+
 def load_excel_data(sheet_name: str) -> pd.DataFrame:
     """Load Excel data into a pandas DataFrame."""
     if st.session_state.temp_path is None:
@@ -76,52 +89,99 @@ async def fetch_suggestions_async(column_name: str, language: str) -> List[Dict[
     try:
         client = get_suggest_client()
         suggestions = await client.suggest(column_name, language)
-        return suggestions[:10]  # Limit to top 10
+
+        # Debug: Log first suggestion structure to understand response format
+        if suggestions and len(suggestions) > 0:
+            import sys
+            print(f"DEBUG - First suggestion keys: {suggestions[0].keys() if isinstance(suggestions[0], dict) else dir(suggestions[0])}",
+                  file=sys.stderr)
+            print(f"DEBUG - First suggestion: {suggestions[0]}", file=sys.stderr)
+
+        return suggestions[:5]  # Limit to top 5
     except Exception as e:
         st.warning(f"Could not fetch suggestions for '{column_name}': {e}")
         return []
 
 
 def fetch_suggestions_sync(column_name: str, language: str) -> List[Dict[str, str]]:
-    """Synchronous wrapper for fetching suggestions."""
-    return asyncio.run(fetch_suggestions_async(column_name, language))
+    """
+    Synchronous wrapper for fetching suggestions.
+
+    Handles event loop management for Streamlit compatibility.
+    Creates a new event loop if needed to avoid "Event loop is closed" errors.
+    """
+    try:
+        # Try to get the current event loop
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                # Loop is closed, create a new one
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+        except RuntimeError:
+            # No event loop exists, create a new one
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        # Run the async function
+        return loop.run_until_complete(fetch_suggestions_async(column_name, language))
+
+    except Exception as e:
+        st.warning(f"Could not fetch suggestions for '{column_name}': {e}")
+        return []
 
 
 def generate_view_object() -> Dict[str, Any]:
     """Generate the internal view object with all mappings."""
     if not st.session_state.selected_sheet or st.session_state.df is None:
         return {}
-    
+
     # Create dataset name
     dataset_name = f"{Path(st.session_state.file_name).stem}_{st.session_state.selected_sheet.replace(' ', '_')}"
-    
+
     # Build columns dict
     columns_dict = {}
-    
-    for column in st.session_state.df.columns:
+
+    # Get column names from ExcelReader (source of truth)
+    columns = st.session_state.reader.columns(st.session_state.selected_sheet)
+
+    for column in columns:
         # Get sample values (first 10 non-null values)
         sample_values = st.session_state.df[column].dropna().head(10).astype(str).tolist()
         
         # Get suggestions from cache
         suggestions = st.session_state.suggestions_cache.get(column, [])
-        
+
+        # Normalize suggestions to ensure they have id and label keys
+        normalized_suggestions = []
+        for s in suggestions:
+            try:
+                if isinstance(s, dict):
+                    s_id = s.get('id') or s.get('uri') or s.get('concept_id')
+                    s_label = s.get('label') or s.get('name') or s.get('title')
+                else:
+                    s_id = getattr(s, 'id', None) or getattr(s, 'uri', None)
+                    s_label = getattr(s, 'label', None) or getattr(s, 'name', None)
+
+                if s_id and s_label:
+                    normalized_suggestions.append({'id': str(s_id), 'label': str(s_label)})
+            except Exception:
+                continue
+
         # Get selected mapping
         selected_id = st.session_state.column_mappings.get(column)
         selected_suggestion = None
-        
+
         if selected_id:
-            for s in suggestions:
+            for s in normalized_suggestions:
                 if s['id'] == selected_id:
                     selected_suggestion = {"label": s['label'], "id": s['id']}
                     break
-        
+
         columns_dict[column] = {
             "values": sample_values,
             "mapping_to_pyst": {
-                "suggestions": [
-                    {"label": s['label'], "id": s['id']}
-                    for s in suggestions
-                ],
+                "suggestions": normalized_suggestions,
                 "selected": selected_suggestion if selected_suggestion else selected_id
             }
         }
@@ -138,7 +198,7 @@ def generate_view_object() -> Dict[str, Any]:
 
 # ===== SIDEBAR =====
 with st.sidebar:
-    st.title("🗺️ Trailpack")
+    st.title("🎒 Trailpack")
     st.markdown("### Excel to PyST Mapper")
     st.markdown("---")
     
@@ -174,7 +234,7 @@ with st.sidebar:
 
 # Page 1: File Upload and Language Selection
 if st.session_state.page == 1:
-    st.title("📤 Step 1: Upload File and Select Language")
+    st.title("Step 1: Upload File and Select Language")
     st.markdown("Upload an Excel file and select the language for PyST concept mapping.")
     
     # File upload
@@ -221,39 +281,51 @@ if st.session_state.page == 1:
 
 # Page 2: Sheet Selection
 elif st.session_state.page == 2:
-    st.title("📋 Step 2: Select Sheet")
+    st.title("Step 2: Select Sheet")
     st.markdown(f"**File:** {st.session_state.file_name}")
     
     if st.session_state.reader:
         sheets = st.session_state.reader.sheets()
         
         st.markdown("Select the sheet you want to process:")
-        
+
+        # Get current index for default selection
+        current_sheet = st.session_state.selected_sheet
+        default_index = 0
+        if current_sheet and current_sheet in sheets:
+            default_index = sheets.index(current_sheet)
+
         selected_sheet = st.radio(
             "Available Sheets",
             options=sheets,
-            index=0 if sheets else None,
+            index=default_index,
+            key="sheet_radio",
+            on_change=on_sheet_change,
             label_visibility="collapsed"
         )
-        
-        st.session_state.selected_sheet = selected_sheet
+
+        # Update session state if not already updated by callback
+        if st.session_state.selected_sheet != selected_sheet:
+            st.session_state.selected_sheet = selected_sheet
         
         # Show preview of the selected sheet
         if selected_sheet:
-            st.markdown("### 👀 Data Preview")
+            st.markdown("### Data Preview")
             
             with st.spinner("Loading data preview..."):
                 df = load_excel_data(selected_sheet)
                 
                 if df is not None:
                     st.session_state.df = df
-                    
+
                     # Show basic info
                     col1, col2, col3 = st.columns(3)
                     with col1:
                         st.metric("Rows", len(df))
                     with col2:
-                        st.metric("Columns", len(df.columns))
+                        # Use ExcelReader for column count (consistent source)
+                        column_count = len(st.session_state.reader.columns(selected_sheet))
+                        st.metric("Columns", column_count)
                     with col3:
                         st.metric("Non-empty cells", df.notna().sum().sum())
                     
@@ -278,7 +350,7 @@ elif st.session_state.page == 2:
 
 # Page 3: Column Mapping
 elif st.session_state.page == 3:
-    st.title("🔗 Step 3: Map Columns to PyST Concepts")
+    st.title("Step 3: Map Columns to PyST Concepts")
     st.markdown(f"**File:** {st.session_state.file_name} | **Sheet:** {st.session_state.selected_sheet}")
     
     if st.session_state.df is not None:
@@ -288,9 +360,9 @@ elif st.session_state.page == 3:
         
         st.markdown("### Column Mappings")
         st.markdown("Select a PyST concept for each column. Suggestions are generated automatically based on column names.")
-        
-        # Create a more compact layout for column mappings
-        columns = st.session_state.df.columns.tolist()
+
+        # Get column names from ExcelReader (consistent with sheet selection on Page 2)
+        columns = st.session_state.reader.columns(st.session_state.selected_sheet)
         
         # Fetch suggestions for all columns if not already cached
         if not st.session_state.suggestions_cache:
@@ -320,11 +392,38 @@ elif st.session_state.page == 3:
                 
                 with col2:
                     suggestions = st.session_state.suggestions_cache.get(column, [])
-                    
+
                     if suggestions:
-                        # Create options for selectbox
-                        options = ["(No mapping)"] + [f"{s['label']} (ID: {s['id']})" for s in suggestions]
-                        option_ids = [None] + [s['id'] for s in suggestions]
+                        # Filter out invalid suggestions and create options
+                        # Handle both dict-like and object-like suggestion formats
+                        valid_suggestions = []
+                        for s in suggestions:
+                            try:
+                                # Try to get id and label with different access methods
+                                if isinstance(s, dict):
+                                    s_id = s.get('id') or s.get('uri') or s.get('concept_id')
+                                    s_label = s.get('label') or s.get('name') or s.get('title')
+                                else:
+                                    s_id = getattr(s, 'id', None) or getattr(s, 'uri', None)
+                                    s_label = getattr(s, 'label', None) or getattr(s, 'name', None)
+
+                                if s_id and s_label:
+                                    valid_suggestions.append({'id': s_id, 'label': s_label})
+                            except Exception:
+                                # Skip suggestions we can't parse
+                                continue
+
+                        if valid_suggestions:
+                            # Create options for selectbox
+                            options = ["(No mapping)"] + [f"{s['label']} (ID: {s['id']})" for s in valid_suggestions]
+                            option_ids = [None] + [s['id'] for s in valid_suggestions]
+                        else:
+                            # No valid suggestions found
+                            st.warning(f"No valid suggestions for '{column}'")
+                            st.session_state.column_mappings[column] = None
+                            valid_suggestions = []
+                            options = ["(No mapping)"]
+                            option_ids = [None]
                         
                         # Get current selection
                         current_value = st.session_state.column_mappings.get(column)

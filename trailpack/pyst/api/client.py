@@ -57,6 +57,19 @@ class PystSuggestClient:
             follow_redirects=True
         )
 
+    def _ensure_client_valid(self):
+        """
+        Ensure the client is valid for the current event loop.
+
+        If the client is closed or tied to a different event loop,
+        reinitialize it. This is necessary for Streamlit compatibility.
+        """
+        if self._api_client is None:
+            self._initialize_client()
+        elif self._api_client.is_closed:
+            # Client is closed, reinitialize
+            self._initialize_client()
+
     @classmethod
     def get_instance(cls) -> "PystSuggestClient":
         """
@@ -94,6 +107,9 @@ class PystSuggestClient:
             >>> for concept in results:
             ...     print(concept["label"])
         """
+        # Ensure client is valid for current event loop
+        self._ensure_client_valid()
+
         # Validate request parameters
         request = SuggestRequest(query=query, language=language)
         params = request.to_query_params()
