@@ -65,29 +65,12 @@ class Packing:
         Args:
             path (str): The file path of the Parquet file to read.
         Returns:
-            tuple: A tuple containing the DataFrame and metadata dictionary.
+            None
         """
-        if not os.path.exists(path):
-            raise FileNotFoundError(f"The file {path} does not exist.")
-
-        # Read the Parquet file
-        table = parquet.read_table(path)
-
-        # Extract metadata
-        metadata = table.schema.metadata
-        if metadata and b"datapackage.json" in metadata:
-            json_metadata = metadata[b"datapackage.json"].decode('utf-8')
-            meta_data = json.loads(json_metadata)
-        else:
-            meta_data = {}
-
-        # Convert Arrow Table back to pandas DataFrame
-        df = table.to_pandas()
-
+        df, meta_data = read_parquet(path)
+        
         self.data = df
         self.meta_data = meta_data
-
-        return df, meta_data
 
     def __check_data_types__(self, data: pd.DataFrame, meta_data: dict) -> None:
         """Check that self.data is a pandas DataFrame and self.meta_data is a dictionary."""
@@ -98,3 +81,29 @@ class Packing:
         if not isinstance(meta_data, dict):
             raise TypeError("meta_data must be a dictionary")
 
+
+def read_parquet(source_path: str) -> tuple[pd.DataFrame, dict]:
+    """Read a Parquet file and extract the DataFrame and embedded metadata.
+    Args:
+        path (str): The file path of the Parquet file to read.
+    Returns:
+        tuple: A tuple containing the DataFrame and metadata dictionary.
+    """
+    if not os.path.exists(source_path):
+        raise FileNotFoundError(f"The file {source_path} does not exist.")
+
+    # Read the Parquet file
+    table = parquet.read_table(source_path)
+
+    # Extract metadata
+    metadata = table.schema.metadata
+    if metadata and b"datapackage.json" in metadata:
+        json_metadata = metadata[b"datapackage.json"].decode('utf-8')
+        meta_data = json.loads(json_metadata)
+    else:
+        meta_data = {}
+
+    # Convert Arrow Table back to pandas DataFrame
+    df = table.to_pandas()
+
+    return df, meta_data
