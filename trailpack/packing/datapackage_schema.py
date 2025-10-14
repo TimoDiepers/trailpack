@@ -591,6 +591,33 @@ class MetaDataBuilder:
         }
 
 
+
+# Common license templates
+COMMON_LICENSES = {
+    "CC-BY-4.0": {
+        "name": "CC-BY-4.0",
+        "title": "Creative Commons Attribution 4.0",
+        "path": "https://spdx.org/licenses/CC-BY-4.0.html",
+    },
+    "MIT": {
+        "name": "MIT",
+        "title": "MIT License",
+        "path": "https://spdx.org/licenses/MIT.html",
+    },
+    "Apache-2.0": {
+        "name": "Apache-2.0",
+        "title": "Apache License 2.0",
+        "path": "https://spdx.org/licenses/Apache-2.0.html",
+    },
+    "CC0-1.0": {
+        "name": "CC0-1.0",
+        "title": "Creative Commons Zero v1.0 Universal",
+        "path": "https://spdx.org/licenses/CC0-1.0.html",
+    },
+}
+
+
+
 # Field type templates for quick creation
 FIELD_TEMPLATES = {
     "id": Field(
