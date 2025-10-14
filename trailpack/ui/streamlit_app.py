@@ -1,9 +1,18 @@
 """Streamlit UI application for trailpack - Excel to PyST mapper."""
 
+import sys
+from pathlib import Path
+
+# Add parent directory to path for Streamlit Cloud deployment
+# This ensures that trailpack modules can be imported even when the package isn't installed
+_current_dir = Path(__file__).resolve().parent
+_repo_root = _current_dir.parent.parent
+if str(_repo_root) not in sys.path:
+    sys.path.insert(0, str(_repo_root))
+
 import asyncio
 import tempfile
 import json
-from pathlib import Path
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 
