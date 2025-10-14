@@ -21,7 +21,7 @@ class Packing:
         read_parquet(path): Reads a Parquet file and extracts the DataFrame and metadata.
     """
     def __init__(self,
-                  data: pd.DataFrame,
+                  data: pd.DataFrame = pd.DataFrame(),
                   meta_data: dict = {}
                   ) -> None:
         
@@ -34,7 +34,7 @@ class Packing:
     def write_parquet(self, path: str) -> None:
         """Write the DataFrame to a Parquet file with embedded metadata.
         Args:
-            path (str): The file path where the Parquet file will be saved.
+            path (str): The file path where the Parquet file will be saved. Including file name 'file.parquet'.
         Returns:
             None
 
@@ -97,4 +97,4 @@ class Packing:
         # check that self.meta_data is a dictionary
         if not isinstance(meta_data, dict):
             raise TypeError("meta_data must be a dictionary")
-        
+
