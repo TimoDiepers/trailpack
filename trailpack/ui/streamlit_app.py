@@ -454,7 +454,66 @@ elif st.session_state.page == 3:
                         st.caption(f"Sample: {', '.join(sample_values[:3])}")
 
                 with col2:
-                    # Search field - type and press Enter
+                    # Check if column is numeric
+                    is_numeric = pd.api.types.is_numeric_dtype(st.session_state.df[column])
+
+                    # If numeric, show unit search field first
+                    if is_numeric:
+                        # Unit search field
+                        unit_search_query = st.text_input(
+                            "Search for unit",
+                            key=f"search_unit_{column}",
+                            placeholder="Type and press Enter to search...",
+                            label_visibility="visible"
+                        )
+
+                        # Fetch and display unit suggestions
+                        if unit_search_query and len(unit_search_query) >= 2:
+                            cache_key = f"{column}_unit_{unit_search_query}"
+                            if cache_key not in st.session_state.suggestions_cache:
+                                suggestions = fetch_suggestions_sync(unit_search_query, st.session_state.language)
+                                st.session_state.suggestions_cache[cache_key] = suggestions[:5]
+
+                            # Show unit suggestions dropdown
+                            suggestions = st.session_state.suggestions_cache.get(cache_key, [])
+                            if suggestions:
+                                valid_suggestions = []
+                                for s in suggestions:
+                                    try:
+                                        if isinstance(s, dict):
+                                            s_id = s.get('id') or s.get('id_') or s.get('uri') or s.get('concept_id')
+                                            s_label = s.get('label') or s.get('name') or s.get('title')
+                                        else:
+                                            s_id = getattr(s, 'id', None) or getattr(s, 'id_', None) or getattr(s, 'uri', None)
+                                            s_label = getattr(s, 'label', None) or getattr(s, 'name', None)
+                                        if s_id and s_label:
+                                            valid_suggestions.append({'id': s_id, 'label': s_label})
+                                    except Exception:
+                                        continue
+
+                                if valid_suggestions:
+                                    options = [s['label'] for s in valid_suggestions]
+                                    option_ids = [s['id'] for s in valid_suggestions]
+
+                                    # Get current selection index for unit
+                                    current_unit_mapping = st.session_state.column_mappings.get(f"{column}_unit")
+                                    default_idx = 0
+                                    if current_unit_mapping in option_ids:
+                                        default_idx = option_ids.index(current_unit_mapping)
+
+                                    selected = st.selectbox(
+                                        "Select unit from results",
+                                        options=options,
+                                        index=default_idx,
+                                        key=f"select_unit_{column}",
+                                        label_visibility="visible"
+                                    )
+
+                                    # Store unit selection
+                                    selected_idx = options.index(selected)
+                                    st.session_state.column_mappings[f"{column}_unit"] = option_ids[selected_idx]
+
+                    # Ontology search field (for all columns)
                     search_query = st.text_input(
                         "Search for ontology",
                         key=f"search_{column}",
@@ -462,7 +521,7 @@ elif st.session_state.page == 3:
                         label_visibility="visible"
                     )
 
-                    # Fetch and display suggestions when search query exists (>= 2 chars)
+                    # Fetch and display ontology suggestions
                     if search_query and len(search_query) >= 2:
                         cache_key = f"{column}_{search_query}"
                         if cache_key not in st.session_state.suggestions_cache:
@@ -561,13 +620,13 @@ elif st.session_state.page == 4:
         # Clear from session state if empty
         st.session_state.general_details.pop("name", None)
     
-    # Title (optional)
+    # Title (required)
     title_field = field_defs.get("title", {})
     title = st.text_input(
-        title_field.get("label", "Title"),
+        title_field.get("label", "Title") + " *",
         value=st.session_state.general_details.get("title", ""),
         placeholder=title_field.get("placeholder", ""),
-        help=title_field.get("description", ""),
+        help=title_field.get("description", "") + " (Required)",
         key="input_title"
     )
     if title:
@@ -722,8 +781,9 @@ elif st.session_state.page == 4:
     elif not modified:
         st.session_state.general_details.pop("modified", None)
     
-    st.markdown("### Licenses")
-    
+    st.markdown("### Licenses *")
+    st.caption("At least one license is required")
+
     # License selection
     license_options = ["None"] + list(COMMON_LICENSES.keys()) + ["Custom"]
     current_licenses = st.session_state.general_details.get("licenses", [])
@@ -778,8 +838,9 @@ elif st.session_state.page == 4:
                 st.session_state.general_details["licenses"].append(license_info.copy())
                 st.rerun()
     
-    st.markdown("### Contributors")
-    
+    st.markdown("### Contributors *")
+    st.caption("At least one contributor is required")
+
     # Display existing contributors
     current_contributors = st.session_state.general_details.get("contributors", [])
     if current_contributors:
@@ -831,8 +892,9 @@ elif st.session_state.page == 4:
             st.session_state.general_details["contributors"].append(new_contributor)
             st.rerun()
     
-    st.markdown("### Sources")
-    
+    st.markdown("### Sources *")
+    st.caption("At least one source is required")
+
     # Display existing sources
     current_sources = st.session_state.general_details.get("sources", [])
     if current_sources:
@@ -882,9 +944,23 @@ elif st.session_state.page == 4:
             navigate_to(3)
     
     with col3:
-        # Check if required fields are filled
-        has_required_fields = "name" in st.session_state.general_details
-        
+        # Check if required fields are filled (per DataPackageSchema.REQUIRED_FIELDS)
+        # Required: name, title, resources (auto), licenses, created (auto), contributors, sources
+        missing_fields = []
+
+        if "name" not in st.session_state.general_details:
+            missing_fields.append("Package Name")
+        if "title" not in st.session_state.general_details:
+            missing_fields.append("Title")
+        if not st.session_state.general_details.get("licenses"):
+            missing_fields.append("At least one License")
+        if not st.session_state.general_details.get("contributors"):
+            missing_fields.append("At least one Contributor")
+        if not st.session_state.general_details.get("sources"):
+            missing_fields.append("At least one Source")
+
+        has_required_fields = len(missing_fields) == 0
+
         # Check if all filled fields are valid
         all_valid = True
         if "name" in st.session_state.general_details:
@@ -899,44 +975,86 @@ elif st.session_state.page == 4:
         if "repository" in st.session_state.general_details:
             is_valid, _ = schema.validate_url(st.session_state.general_details["repository"])
             all_valid = all_valid and is_valid
-        
+
         if has_required_fields and all_valid:
             if st.button("✅ Finish", type="primary", use_container_width=True):
-                st.success("✅ All information collected successfully!")
-                st.balloons()
-                
-                # Show completion summary
-                st.info("All mappings and metadata have been saved internally. The data is ready for further processing.")
-                
-                # Show summary
-                with st.expander("📝 Summary", expanded=True):
-                    st.markdown("**Column Mappings:**")
-                    columns = st.session_state.reader.columns(st.session_state.selected_sheet)
-                    mapped_count = sum(1 for v in st.session_state.column_mappings.values() if v is not None)
-                    st.metric("Columns Mapped", f"{mapped_count} / {len(columns)}")
-                    
-                    st.markdown("**General Details:**")
-                    for key, value in st.session_state.general_details.items():
-                        if key == "licenses" and isinstance(value, list):
-                            st.markdown(f"- **Licenses:** {len(value)} license(s)")
-                            for lic in value:
-                                st.markdown(f"  - {lic.get('name', 'Unknown')}")
-                        elif key == "contributors" and isinstance(value, list):
-                            st.markdown(f"- **Contributors:** {len(value)} contributor(s)")
-                            for contrib in value:
-                                st.markdown(f"  - {contrib.get('name', 'Unknown')} ({contrib.get('role', 'contributor')})")
-                        elif key == "sources" and isinstance(value, list):
-                            st.markdown(f"- **Sources:** {len(value)} source(s)")
-                            for source in value:
-                                st.markdown(f"  - {source.get('title', 'Unknown')}")
-                        elif isinstance(value, list):
-                            st.markdown(f"- **{key.title()}:** {', '.join(str(v) for v in value)}")
-                        else:
-                            st.markdown(f"- **{key.title()}:** {value}")
+                st.session_state.export_ready = True
         else:
             st.button("✅ Finish", type="primary", disabled=True, use_container_width=True)
             if not has_required_fields:
-                st.warning("⚠️ Please fill in the required field: Package Name")
+                st.warning(f"⚠️ Please fill in the required fields: {', '.join(missing_fields)}")
+            elif not all_valid:
+                st.warning("⚠️ Please fix validation errors in the form")
+
+    # Export section - appears below the form after "Finish" is clicked
+    if st.session_state.get("export_ready", False):
+        st.markdown("---")
+        st.success("✅ All information collected successfully!")
+
+        st.markdown("### Export Data Package")
+        export_name = st.text_input(
+            "Export file name",
+            value=f"{st.session_state.general_details['name']}.parquet",
+            help="Name for the exported Parquet file",
+            key="export_filename"
+        )
+
+        if st.button("📦 Generate Parquet File", type="primary", use_container_width=True):
+            with st.spinner("Building data package..."):
+                try:
+                    from trailpack.packing.export_service import DataPackageExporter
+                    from trailpack.packing.packing import read_parquet
+
+                    exporter = DataPackageExporter(
+                        df=st.session_state.df,
+                        column_mappings=st.session_state.column_mappings,
+                        general_details=st.session_state.general_details,
+                        sheet_name=st.session_state.selected_sheet,
+                        file_name=st.session_state.file_name,
+                        suggestions_cache=st.session_state.suggestions_cache
+                    )
+
+                    with tempfile.NamedTemporaryFile(delete=False, suffix='.parquet') as tmp:
+                        output_path = exporter.export(tmp.name)
+
+                        # Store in session state for display
+                        st.session_state.output_path = output_path
+                        st.session_state.export_complete = True
+
+                except Exception as e:
+                    st.error(f"❌ Export failed: {e}")
+                    st.session_state.export_complete = False
+
+        # Display export results - fills all space below
+        if st.session_state.get("export_complete", False):
+            st.balloons()
+
+            from trailpack.packing.packing import read_parquet
+
+            # Read back the exported file
+            exported_df, exported_metadata = read_parquet(st.session_state.output_path)
+
+            st.success(f"✅ Data package created successfully!")
+
+            # Display data sample
+            st.markdown("### 📊 Data Sample (first 10 rows)")
+            st.dataframe(exported_df.head(10), use_container_width=True)
+
+            # Display metadata in JSON format
+            st.markdown("### 📋 Embedded Metadata")
+            st.json(exported_metadata)
+
+            # Offer download
+            with open(st.session_state.output_path, 'rb') as f:
+                parquet_data = f.read()
+
+            st.download_button(
+                label="⬇️ Download Parquet File",
+                data=parquet_data,
+                file_name=export_name,
+                mime="application/vnd.apache.parquet",
+                use_container_width=True
+            )
 
 
 # Footer

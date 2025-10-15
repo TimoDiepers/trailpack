@@ -1,0 +1,276 @@
+"""
+Export service for converting UI data to Frictionless Data Package in Parquet.
+"""
+
+from typing import Any, Dict, List, Tuple, Optional
+from pathlib import Path
+import pandas as pd
+
+from trailpack.packing.datapackage_schema import (
+    Field,
+    Unit,
+    Resource,
+    MetaDataBuilder,
+    DataPackageSchema
+)
+from trailpack.packing.packing import Packing
+
+
+class DataPackageExporter:
+    """Service for exporting UI data to Frictionless Data Package in Parquet."""
+
+    def __init__(
+        self,
+        df: pd.DataFrame,
+        column_mappings: Dict[str, str],
+        general_details: Dict[str, Any],
+        sheet_name: str,
+        file_name: str,
+        suggestions_cache: Dict[str, List] = None
+    ):
+        """
+        Initialize with UI session state data.
+
+        Args:
+            df: Pandas DataFrame with the actual data
+            column_mappings: Mapping of column names to PyST concept IDs
+            general_details: Metadata from the general details form
+            sheet_name: Name of the Excel sheet
+            file_name: Original file name
+            suggestions_cache: Cache of PyST suggestions with id and label
+        """
+        self.df = df
+        self.column_mappings = column_mappings
+        self.general_details = general_details
+        self.sheet_name = sheet_name
+        self.file_name = file_name
+        self.suggestions_cache = suggestions_cache or {}
+        self.schema = DataPackageSchema()
+
+    def validate(self) -> Tuple[bool, List[str]]:
+        """Validate all inputs before processing."""
+        errors = []
+
+        if self.df is None or self.df.empty:
+            errors.append("DataFrame is empty or None")
+
+        if not self.general_details.get("name"):
+            errors.append("Package name is required")
+
+        if "name" in self.general_details:
+            is_valid, error_msg = self.schema.validate_package_name(
+                self.general_details["name"]
+            )
+            if not is_valid:
+                errors.append(f"Invalid package name: {error_msg}")
+
+        return len(errors) == 0, errors
+
+    def build_fields(self) -> List[Field]:
+        """Convert column mappings to Field definitions."""
+        fields = []
+
+        for column in self.df.columns:
+            # Infer type
+            field_type = self._infer_field_type(self.df[column])
+
+            # Get ontology mapping
+            ontology_id = self.column_mappings.get(column)
+
+            # Build unit if numeric
+            unit = None
+            if pd.api.types.is_numeric_dtype(self.df[column]):
+                unit_id = self.column_mappings.get(f"{column}_unit")
+                if unit_id:
+                    # Find label from suggestions cache
+                    unit_label = self._find_label_for_id(unit_id)
+                    unit = Unit(
+                        name=unit_label or unit_id.split('/')[-1],
+                        long_name=unit_label,
+                        path=unit_id
+                    )
+
+            # Handle numeric fields without unit - use dimensionless
+            if field_type in ['number', 'integer'] and not unit:
+                unit = Unit(
+                    name="NUM",
+                    long_name="dimensionless number",
+                    path="https://vocab.sentier.dev/units/unit/NUM"
+                )
+
+            field = Field(
+                name=column,
+                type=field_type,
+                description=f"Column from {self.sheet_name}",
+                unit=unit,
+                rdf_type=ontology_id,
+                taxonomy_url=ontology_id if ontology_id else None
+            )
+            fields.append(field)
+
+        return fields
+
+    def build_resource(self, fields: List[Field]) -> Resource:
+        """Create Resource definition with fields."""
+        resource_name = (
+            f"{Path(self.file_name).stem}_{self.sheet_name.replace(' ', '_')}"
+            .lower()
+            .replace(" ", "_")
+        )
+
+        return Resource(
+            name=resource_name,
+            path=f"{resource_name}.parquet",
+            title=self.general_details.get("title", self.file_name),
+            description=self.general_details.get("description", f"Data from {self.sheet_name}"),
+            format="parquet",
+            mediatype="application/vnd.apache.parquet",
+            encoding="utf-8",
+            profile="tabular-data-resource",
+            fields=fields
+        )
+
+    def build_metadata(self, resource: Resource) -> Dict[str, Any]:
+        """Build complete metadata using MetaDataBuilder."""
+        builder = MetaDataBuilder()
+
+        builder.set_basic_info(
+            name=self.general_details["name"],
+            title=self.general_details.get("title"),
+            description=self.general_details.get("description"),
+            version=self.general_details.get("version"),
+        )
+
+        if "profile" in self.general_details:
+            builder.set_profile(self.general_details["profile"])
+        if "keywords" in self.general_details:
+            builder.set_keywords(self.general_details["keywords"])
+
+        builder.set_links(
+            homepage=self.general_details.get("homepage"),
+            repository=self.general_details.get("repository"),
+        )
+
+        for license_data in self.general_details.get("licenses", []):
+            builder.add_license(
+                name=license_data["name"],
+                title=license_data.get("title"),
+                path=license_data.get("path"),
+            )
+
+        for contrib in self.general_details.get("contributors", []):
+            builder.add_contributor(
+                name=contrib["name"],
+                role=contrib.get("role", "author"),
+                email=contrib.get("email"),
+                organization=contrib.get("organization"),
+            )
+
+        for source in self.general_details.get("sources", []):
+            builder.add_source(
+                title=source["title"],
+                path=source.get("path"),
+                description=source.get("description"),
+            )
+
+        if "created" in self.general_details:
+            builder.metadata["created"] = self.general_details["created"]
+        if "modified" in self.general_details:
+            builder.metadata["modified"] = self.general_details["modified"]
+
+        builder.add_resource(resource)
+
+        return builder.build()
+
+    def export(self, output_path: str) -> str:
+        """Execute full export workflow and write Parquet."""
+        # Validate
+        is_valid, errors = self.validate()
+        if not is_valid:
+            raise ValueError(f"Validation failed: {', '.join(errors)}")
+
+        # Validate DataFrame for Parquet compatibility
+        self._validate_dataframe_for_parquet(self.df)
+
+        # Build fields
+        fields = self.build_fields()
+
+        # Build resource
+        resource = self.build_resource(fields)
+
+        # Build metadata
+        metadata = self.build_metadata(resource)
+
+        # Write to Parquet
+        packer = Packing(data=self.df, meta_data=metadata)
+        packer.write_parquet(output_path)
+
+        return output_path
+
+    def _validate_dataframe_for_parquet(self, df: pd.DataFrame) -> None:
+        """Validate DataFrame is compatible with Arrow/Parquet format.
+
+        Raises:
+            ValueError: If data quality issues are found (e.g., mixed types in columns)
+        """
+        errors = []
+
+        for column in df.columns:
+            # Check for mixed types in object columns
+            if df[column].dtype == 'object':
+                non_null_values = df[column].dropna()
+                if len(non_null_values) == 0:
+                    continue
+
+                # Get unique types in the column
+                types = non_null_values.apply(type).unique()
+
+                if len(types) > 1:
+                    type_names = [t.__name__ for t in types]
+                    sample_values = []
+                    for t in types:
+                        sample = non_null_values[non_null_values.apply(type) == t].iloc[0]
+                        sample_values.append(f"{t.__name__}: {repr(sample)}")
+
+                    errors.append(
+                        f"Column '{column}' contains mixed data types: {', '.join(type_names)}.\n"
+                        f"  Examples: {' | '.join(sample_values)}\n"
+                        f"  Please ensure all values in this column are of the same type."
+                    )
+
+        if errors:
+            error_message = "Data quality issues found that prevent Parquet conversion:\n\n"
+            error_message += "\n\n".join(f"{i+1}. {e}" for i, e in enumerate(errors))
+            error_message += "\n\nPlease clean your data and try again."
+            raise ValueError(error_message)
+
+    def _infer_field_type(self, series: pd.Series) -> str:
+        """Infer Frictionless field type from pandas Series."""
+        if pd.api.types.is_integer_dtype(series):
+            return "integer"
+        elif pd.api.types.is_float_dtype(series):
+            return "number"
+        elif pd.api.types.is_bool_dtype(series):
+            return "boolean"
+        elif pd.api.types.is_datetime64_any_dtype(series):
+            return "datetime"
+        else:
+            return "string"
+
+    def _find_label_for_id(self, concept_id: str) -> Optional[str]:
+        """Find label for a PyST concept ID from suggestions cache."""
+        for cache_key, suggestions in self.suggestions_cache.items():
+            for s in suggestions:
+                try:
+                    if isinstance(s, dict):
+                        s_id = s.get('id') or s.get('id_') or s.get('uri')
+                        s_label = s.get('label') or s.get('name')
+                    else:
+                        s_id = getattr(s, 'id', None) or getattr(s, 'id_', None)
+                        s_label = getattr(s, 'label', None) or getattr(s, 'name', None)
+
+                    if str(s_id) == str(concept_id):
+                        return str(s_label) if s_label else None
+                except Exception:
+                    continue
+        return None
