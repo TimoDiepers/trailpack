@@ -36,6 +36,13 @@ from trailpack.io.smart_reader import SmartDataReader
 from trailpack.pyst.api.requests.suggest import SUPPORTED_LANGUAGES
 from trailpack.pyst.api.client import get_suggest_client
 from trailpack.packing.datapackage_schema import DataPackageSchema, COMMON_LICENSES
+from trailpack.config import (
+    build_mapping_config,
+    build_metadata_config,
+    export_mapping_json,
+    export_metadata_json,
+    generate_config_filename,
+)
 
 
 ICON_PATH = Path(__file__).parent / "icon.svg"
@@ -1092,6 +1099,59 @@ elif st.session_state.page == 4:
                     file_name=report_filename,
                     mime="text/plain",
                     use_container_width=True
+                )
+
+            # Config downloads
+            st.markdown("### Configuration Files")
+            st.markdown("Download reusable configuration files for reproducible processing")
+
+            # Build configs from session state
+            mapping_config = build_mapping_config(
+                column_mappings=st.session_state.column_mappings,
+                file_name=st.session_state.file_name,
+                sheet_name=st.session_state.selected_sheet,
+                language=st.session_state.language
+            )
+
+            metadata_config = build_metadata_config(
+                general_details=st.session_state.general_details
+            )
+
+            # Generate filenames
+            package_name = st.session_state.general_details.get("name")
+            mapping_filename = generate_config_filename(
+                config_type="mapping",
+                package_name=package_name,
+                file_name=st.session_state.file_name,
+                sheet_name=st.session_state.selected_sheet
+            )
+            metadata_filename = generate_config_filename(
+                config_type="metadata",
+                package_name=package_name,
+                file_name=st.session_state.file_name
+            )
+
+            # Download buttons in two columns
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.download_button(
+                    label="Download Mapping Config",
+                    data=export_mapping_json(mapping_config),
+                    file_name=mapping_filename,
+                    mime="application/json",
+                    use_container_width=True,
+                    help="Column-to-ontology mappings for reuse with CLI or other datasets"
+                )
+
+            with col2:
+                st.download_button(
+                    label="Download Metadata Config",
+                    data=export_metadata_json(metadata_config),
+                    file_name=metadata_filename,
+                    mime="application/json",
+                    use_container_width=True,
+                    help="Package metadata configuration for reproducible exports"
                 )
 
 
