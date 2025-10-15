@@ -184,8 +184,8 @@ Simplified Architecture: Local-First Data Quality Tool
   | Packing           | Write Parquet                | [x] Already works |
   | StandardValidator | Validate against rules       | [x] Implemented   |
   | SmartDataReader   | Adaptive file reading        | [x] Implemented   |
+  | Config Export     | Save mapping templates       | [x] Implemented   |
   | CLI               | Power user interface         | [ ] Need to add   |
-  | Config Export     | Save mapping templates       | [ ] Need to add   |
 
 ⏺ Final Architecture: Open Source Data Quality Tool
 
@@ -244,7 +244,7 @@ Simplified Architecture: Local-First Data Quality Tool
   | [x] Data preview            | Working      | Done     |
   | [x] StandardValidator       | Implemented  | Done     |
   | [x] SmartDataReader         | Implemented  | Done     |
-  | [ ] Config export (JSON)    | Missing      | HIGH     |
+  | [x] Config export (JSON)    | Implemented  | Done     |
   | [ ] CLI interface           | Missing      | Medium   |
   | [ ] Desktop app packaging   | Missing      | Low      |
   | [ ] Config templates library| Missing      | Low      |
@@ -263,11 +263,13 @@ Simplified Architecture: Local-First Data Quality Tool
      - [x] Add pandas/polars/pyarrow readers
      - [x] Add estimate_memory() method
 
-  3. [ ] Add Config Export (Critical)
-
-  # After successful export, download config templates
-  st.download_button("📋 Download Mapping Template", mapping_json)
-  st.download_button("📄 Download Metadata Template", metadata_json)
+  3. [x] Add Config Export - DONE (184 lines implemented)
+     - [x] Created config module with builder functions
+     - [x] build_mapping_config() - Export column mappings
+     - [x] build_metadata_config() - Export metadata
+     - [x] Added download buttons in UI (lines 1104-1155)
+     - [x] Generates standardized filenames
+     - [x] Only available after successful validation
 
   4. [ ] Add CLI (Nice to have)
 
@@ -353,277 +355,7 @@ Simplified Architecture: Local-First Data Quality Tool
 ⏺ Recommended Adaptive Strategy
 
   Architecture: Auto-Detect + Choose Engine
-
-  # trailpack/io/smart_reader.py
-
-  import os
-  from pathlib import Path
-  import polars as pl
-  import pandas as pd
-  import pyarrow.csv as pv
-  from typing import Union
-
-  class SmartDataReader:
-      """
-      Adaptive data reader that chooses optimal technology based on file size.
-
-      Strategy:
-      - <10MB: pandas (simplicity, compatibility)
-      - 10-500MB: polars (speed, memory efficiency)
-      - >500MB: polars lazy (streaming, minimal memory)
-      - CSV always: pyarrow or polars (much faster than pandas)
-      """
-
-      # Size thresholds (bytes)
-      SMALL_FILE = 10 * 1024 * 1024      # 10MB
-      LARGE_FILE = 500 * 1024 * 1024     # 500MB
-
-      def __init__(self, file_path: Union[str, Path]):
-          self.file_path = Path(file_path)
-          self.file_size = self.file_path.stat().st_size
-          self.engine = self._choose_engine()
-
-      def _choose_engine(self) -> str:
-          """Choose optimal engine based on file size."""
-          suffix = self.file_path.suffix.lower()
-
-          # CSV: Always use fast readers
-          if suffix == '.csv':
-              return 'polars' if self.file_size > self.SMALL_FILE else 'pyarrow'
-
-          # Excel: Choose based on size
-          elif suffix in ['.xlsx', '.xlsm', '.xls']:
-              if self.file_size < self.SMALL_FILE:
-                  return 'pandas'  # Familiar, good enough
-              elif self.file_size < self.LARGE_FILE:
-                  return 'polars'  # Fast, fits in memory
-              else:
-                  return 'polars_lazy'  # Streaming
-
-          # Parquet: Always polars or pyarrow
-          elif suffix == '.parquet':
-              return 'polars'
-
-          else:
-              raise ValueError(f"Unsupported file format: {suffix}")
-
-      def read(self, sheet_name: str = None) -> pd.DataFrame:
-          """
-          Read file using optimal engine, always return pandas DataFrame.
-
-          Why pandas output?
-          - Rest of codebase expects pandas
-          - Can convert polars → pandas at end
-          - Only final result in memory
-          """
-
-          if self.engine == 'pandas':
-              return self._read_pandas(sheet_name)
-
-          elif self.engine == 'polars':
-              return self._read_polars(sheet_name)
-
-          elif self.engine == 'polars_lazy':
-              return self._read_polars_lazy(sheet_name)
-
-          elif self.engine == 'pyarrow':
-              return self._read_pyarrow()
-
-      def _read_pandas(self, sheet_name: str = None) -> pd.DataFrame:
-          """Small files: Use pandas."""
-          if self.file_path.suffix == '.csv':
-              return pd.read_csv(self.file_path)
-          else:
-              return pd.read_excel(self.file_path, sheet_name=sheet_name)
-
-      def _read_polars(self, sheet_name: str = None) -> pd.DataFrame:
-          """Medium files: Use polars, convert to pandas."""
-          if self.file_path.suffix == '.csv':
-              df_pl = pl.read_csv(self.file_path)
-          elif self.file_path.suffix == '.parquet':
-              df_pl = pl.read_parquet(self.file_path)
-          else:
-              # Excel with polars (via fastexcel or calamine)
-              try:
-                  df_pl = pl.read_excel(self.file_path, sheet_name=sheet_name)
-              except:
-                  # Fallback to pandas if polars doesn't support
-                  return self._read_pandas(sheet_name)
-
-          # Convert to pandas (only final result in memory)
-          return df_pl.to_pandas()
-
-      def _read_polars_lazy(self, sheet_name: str = None) -> pd.DataFrame:
-          """Large files: Use lazy evaluation, process in chunks."""
-          if self.file_path.suffix == '.csv':
-              # Lazy CSV reading
-              lf = pl.scan_csv(self.file_path)
-
-              # Sample for preview (first 10k rows)
-              # Full processing happens in streaming mode later
-              df_pl = lf.head(10000).collect()
-
-          else:
-              # For Excel, we need to read in chunks
-              # Use pandas with chunksize
-              chunks = []
-              for chunk in pd.read_excel(
-                  self.file_path,
-                  sheet_name=sheet_name,
-                  chunksize=10000  # Process 10k rows at a time
-              ):
-                  chunks.append(chunk)
-                  if len(chunks) >= 10:  # Preview only
-                      break
-
-              df_pl = pl.from_pandas(pd.concat(chunks))
-
-          return df_pl.to_pandas()
-
-      def _read_pyarrow(self) -> pd.DataFrame:
-          """CSV with PyArrow (fastest CSV reader)."""
-          import pyarrow.csv as pv
-
-          table = pv.read_csv(self.file_path)
-          return table.to_pandas()
-
-      def estimate_memory(self) -> str:
-          """Estimate memory usage."""
-          # Rough estimate: file size * 3 (overhead)
-          estimated = self.file_size * 3
-
-          if estimated < 1024 * 1024:
-              return f"{estimated / 1024:.1f} KB"
-          elif estimated < 1024 * 1024 * 1024:
-              return f"{estimated / (1024 * 1024):.1f} MB"
-          else:
-              return f"{estimated / (1024 * 1024 * 1024):.1f} GB"
-
-⏺ Streaming Validation (For Huge Files)
-
-  # trailpack/validation/streaming_validator.py
-
-  from typing import Iterator, Tuple
-  import polars as pl
-
-  class StreamingValidator:
-      """
-      Validate huge datasets without loading all into memory.
-
-      Process in chunks, accumulate validation errors.
-      """
-
-      def __init__(self, standard: dict, chunk_size: int = 10000):
-          self.standard = standard
-          self.chunk_size = chunk_size
-
-      def validate_file(self, file_path: str) -> Tuple[bool, list]:
-          """Validate file in streaming mode."""
-          errors = []
-
-          # 1. Check file size first
-          file_size = Path(file_path).stat().st_size
-          if file_size > 5 * 1024**3:  # >5GB
-              errors.append(
-                  f"File too large: {file_size / 1024**3:.1f}GB. "
-                  "Consider splitting into multiple files."
-              )
-              return False, errors
-
-          # 2. Validate schema (first chunk only)
-          first_chunk = self._read_chunk(file_path, 0)
-          schema_valid, schema_errors = self._validate_schema(first_chunk)
-          errors.extend(schema_errors)
-
-          # 3. Validate data quality (all chunks)
-          quality_valid, quality_errors = self._validate_quality_streaming(file_path)
-          errors.extend(quality_errors)
-
-          return len(errors) == 0, errors
-
-      def _read_chunk(self, file_path: str, offset: int) -> pl.DataFrame:
-          """Read a chunk of data."""
-          # Use polars lazy evaluation
-          lf = pl.scan_csv(file_path) if file_path.endswith('.csv') else None
-
-          if lf:
-              return lf.slice(offset, self.chunk_size).collect()
-          else:
-              # For Excel, use pandas chunking
-              return pd.read_excel(
-                  file_path,
-                  skiprows=offset,
-                  nrows=self.chunk_size
-              )
-
-      def _validate_quality_streaming(self, file_path: str) -> Tuple[bool, list]:
-          """Validate data quality by processing chunks."""
-          errors = []
-
-          # Statistics to accumulate across chunks
-          stats = {
-              'total_rows': 0,
-              'null_counts': {},
-              'type_errors': {},
-          }
-
-          # Process file in chunks
-          for chunk_df in self._iter_chunks(file_path):
-              stats['total_rows'] += len(chunk_df)
-
-              # Check for mixed types in each chunk
-              for col in chunk_df.columns:
-                  if col not in stats['null_counts']:
-                      stats['null_counts'][col] = 0
-
-                  stats['null_counts'][col] += chunk_df[col].isnull().sum()
-
-                  # Check for mixed types
-                  if chunk_df[col].dtype == 'object':
-                      types = chunk_df[col].dropna().apply(type).unique()
-                      if len(types) > 1:
-                          if col not in stats['type_errors']:
-                              stats['type_errors'][col] = set()
-                          stats['type_errors'][col].update(t.__name__ for t in types)
-
-          # Calculate final error rate
-          max_null_pct = self.standard['data_validation']['max_null_percentage']
-
-          for col, null_count in stats['null_counts'].items():
-              null_pct = null_count / stats['total_rows']
-              if null_pct > max_null_pct:
-                  errors.append(
-                      f"Column '{col}': {null_pct:.1%} nulls "
-                      f"(max: {max_null_pct:.1%})"
-                  )
-
-          # Report type errors
-          for col, types in stats['type_errors'].items():
-              errors.append(
-                  f"Column '{col}': Mixed types detected: {', '.join(types)}"
-              )
-
-          return len(errors) == 0, errors
-
-      def _iter_chunks(self, file_path: str) -> Iterator[pd.DataFrame]:
-          """Iterate over file in chunks."""
-          if file_path.endswith('.csv'):
-              # Use polars batched reading
-              lf = pl.scan_csv(file_path)
-
-              # Process in batches
-              offset = 0
-              while True:
-                  chunk = lf.slice(offset, self.chunk_size).collect()
-                  if len(chunk) == 0:
-                      break
-                  yield chunk.to_pandas()
-                  offset += self.chunk_size
-          else:
-              # Use pandas chunking for Excel
-              for chunk in pd.read_excel(file_path, chunksize=self.chunk_size):
-                  yield chunk
-
+  
 ⏺ Updated Technology Stack
 
   pyproject.toml Dependencies:
@@ -774,8 +506,7 @@ Simplified Architecture: Local-First Data Quality Tool
   2. [x] Create SmartDataReader (io/smart_reader.py - complete with all read methods)
   3. [x] Complete SmartDataReader read() methods
   4. [x] Update streamlit_app.py (replace pd.read_excel → SmartDataReader)
-  5. [ ] Add StreamingValidator (for huge files)
-  6. [x] Keep pandas for output (rest of code expects it)
+  5. [x] Keep pandas for output (rest of code expects it)
 
 ---
 
@@ -791,13 +522,14 @@ Simplified Architecture: Local-First Data Quality Tool
 - [x] StandardValidator (692 lines, full validation suite)
 - [x] Data quality validation (mixed types, nulls, duplicates)
 - [x] Validation report generation and download (detailed text report with all metrics)
+- [x] Config export (download mapping + metadata JSON configs, 184 lines)
 
 ### In Progress
 None
 
 ### Priority Next Steps
-1. **HIGH**: Config export (download mapping + metadata JSON)
-2. **MEDIUM**: CLI interface
+1. **MEDIUM**: CLI interface (trailpack ui, process, validate commands)
+2. **LOW**: Config templates (example configs for common dataset types)
 3. **LOW**: Desktop packaging
 
 ### Files to Test
