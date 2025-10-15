@@ -1,0 +1,431 @@
+# Trailpack Data Package Standard v1.0.0
+# 
+# This standard defines the requirements for datasets to be accepted
+# by data repositories and ensures data quality and interoperability.
+#
+# Based on Frictionless Data Package specification with additional
+# requirements for scientific data quality.
+
+version: "1.0.0"
+name: "Trailpack Data Package Standard"
+description: "Standard for validating scientific datasets packaged with Trailpack"
+effective_date: "2025-10-15"
+
+# =============================================================================
+# METADATA REQUIREMENTS
+# =============================================================================
+
+metadata:
+  # Required metadata fields - MUST be present
+  required:
+    - name:
+        type: string
+        description: "URL-safe package identifier"
+        pattern: "^[a-z0-9\\-_\\.]+$"
+        min_length: 3
+        max_length: 100
+        examples:
+          - "my-lca-dataset"
+          - "co2-emissions-2024"
+        validation_message: "Package name must be lowercase, alphanumeric with hyphens, underscores, or dots"
+    
+    - title:
+        type: string
+        description: "Human-readable dataset title"
+        min_length: 5
+        max_length: 200
+        examples:
+          - "Life Cycle Assessment of Solar Panels"
+          - "Global CO2 Emissions Database 2024"
+        validation_message: "Title must be between 5 and 200 characters"
+    
+    - resources:
+        type: array
+        description: "List of data files in the package"
+        min_items: 1
+        items:
+          type: object
+          required_fields:
+            - name
+            - path
+            - format
+        validation_message: "At least one resource (data file) is required"
+    
+    - licenses:
+        type: array
+        description: "Data usage licenses"
+        min_items: 1
+        items:
+          type: object
+          required_fields:
+            - name
+            - path
+        recommended_licenses:
+          - "CC-BY-4.0"
+          - "CC0-1.0"
+          - "MIT"
+          - "Apache-2.0"
+        validation_message: "At least one license must be specified"
+    
+    - created:
+        type: string
+        format: iso8601_date
+        description: "Dataset creation date"
+        pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+        examples:
+          - "2025-10-15"
+        validation_message: "Created date must be in ISO 8601 format (YYYY-MM-DD)"
+    
+    - contributors:
+        type: array
+        description: "People or organizations who contributed to the dataset"
+        min_items: 1
+        items:
+          type: object
+          required_fields:
+            - name
+            - role
+          optional_fields:
+            - email
+            - organization
+          valid_roles:
+            - "author"
+            - "contributor"
+            - "maintainer"
+            - "publisher"
+            - "wrangler"
+        validation_message: "At least one contributor with role 'author' is required"
+    
+    - sources:
+        type: array
+        description: "Original data sources and references"
+        min_items: 1
+        items:
+          type: object
+          required_fields:
+            - title
+          optional_fields:
+            - path
+            - description
+        validation_message: "At least one data source must be documented"
+
+  # Recommended metadata fields - SHOULD be present
+  recommended:
+    - description:
+        type: text
+        min_length: 50
+        max_length: 5000
+        description: "Detailed description of dataset contents, methods, and limitations"
+        validation_message: "Description should be at least 50 characters for clarity"
+    
+    - version:
+        type: string
+        pattern: "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9\\-\\.]+)?$"
+        description: "Semantic version number"
+        examples:
+          - "1.0.0"
+          - "2.1.3-beta"
+        validation_message: "Version should follow semantic versioning (e.g., 1.0.0)"
+    
+    - keywords:
+        type: array
+        min_items: 3
+        max_items: 20
+        description: "Searchable tags for discovery"
+        examples:
+          - ["lca", "carbon", "emissions", "solar"]
+        validation_message: "At least 3 keywords help improve discoverability"
+    
+    - homepage:
+        type: url
+        description: "Project or dataset homepage URL"
+        pattern: "^https?://"
+        validation_message: "Homepage should be a valid HTTP(S) URL"
+    
+    - repository:
+        type: url
+        description: "Code or data repository URL"
+        pattern: "^https?://"
+        validation_message: "Repository should be a valid HTTP(S) URL"
+
+  # Optional metadata fields - MAY be present
+  optional:
+    - profile:
+        type: string
+        enum:
+          - "tabular-data-package"
+          - "data-package"
+          - "fiscal-data-package"
+        default: "tabular-data-package"
+    
+    - image:
+        type: url
+        description: "Visual representation or logo"
+    
+    - id:
+        type: string
+        description: "Unique identifier (e.g., DOI)"
+        examples:
+          - "doi:10.1234/example"
+    
+    - modified:
+        type: string
+        format: iso8601_date
+        description: "Last modification date"
+
+# =============================================================================
+# RESOURCE (DATA FILE) REQUIREMENTS
+# =============================================================================
+
+resources:
+  # Required fields for each resource
+  required:
+    - name:
+        type: string
+        description: "Resource identifier"
+        pattern: "^[a-z0-9\\-_\\.]+$"
+    
+    - path:
+        type: string
+        description: "Relative or absolute path to data file"
+    
+    - format:
+        type: string
+        description: "File format"
+        allowed_formats:
+          - "parquet"
+          - "csv"
+          - "json"
+          - "xlsx"
+          - "tsv"
+        preferred_format: "parquet"
+        validation_message: "Parquet format is preferred for performance and metadata"
+
+  # Recommended fields for each resource
+  recommended:
+    - title:
+        type: string
+        description: "Human-readable resource title"
+    
+    - description:
+        type: text
+        description: "What this data file contains"
+    
+    - schema:
+        type: object
+        description: "Field definitions with types and constraints"
+        required_fields:
+          - fields
+        validation_message: "Schema with field definitions improves data quality"
+    
+    - encoding:
+        type: string
+        default: "utf-8"
+        description: "Text encoding for CSV/TSV files"
+
+# =============================================================================
+# FIELD (COLUMN) REQUIREMENTS
+# =============================================================================
+
+fields:
+  # Required for each field definition
+  required:
+    - name:
+        type: string
+        description: "Column name"
+        pattern: "^[a-zA-Z][a-zA-Z0-9_]*$"
+        validation_message: "Field names must start with a letter and contain only alphanumeric and underscores"
+    
+    - type:
+        type: string
+        description: "Data type"
+        allowed_types:
+          - "string"
+          - "number"
+          - "integer"
+          - "boolean"
+          - "date"
+          - "datetime"
+          - "time"
+          - "duration"
+          - "geopoint"
+          - "geojson"
+          - "object"
+          - "array"
+          - "any"
+        validation_message: "Field type must be specified from standard types"
+
+  # Recommended for numeric fields
+  recommended_for_numeric:
+    - unit:
+        type: object
+        description: "Unit of measurement (REQUIRED for number/integer types)"
+        required_fields:
+          - name
+        optional_fields:
+          - long_name
+          - path
+        validation_message: "Numeric fields MUST have units specified"
+        examples:
+          - name: "kg"
+            long_name: "kilogram"
+            path: "http://qudt.org/vocab/unit/KiloGM"
+          - name: "°C"
+            long_name: "degree Celsius"
+            path: "http://qudt.org/vocab/unit/DegreeCelsius"
+    
+    - constraints:
+        type: object
+        description: "Value constraints and validation rules"
+        optional_fields:
+          - required
+          - unique
+          - minimum
+          - maximum
+          - pattern
+          - enum
+
+  # Recommended for all fields
+  recommended:
+    - description:
+        type: string
+        min_length: 10
+        description: "What this field represents"
+        validation_message: "Field descriptions improve dataset usability"
+    
+    - rdf_type:
+        type: url
+        description: "Semantic type from ontology (e.g., schema.org, QUDT)"
+        examples:
+          - "http://schema.org/latitude"
+          - "http://qudt.org/schema/qudt/QuantityValue"
+    
+    - taxonomy_url:
+        type: url
+        description: "Controlled vocabulary or classification system"
+        examples:
+          - "https://vocab.sentier.dev/products/"
+          - "https://www.catalogueoflife.org/"
+
+# =============================================================================
+# DATA QUALITY REQUIREMENTS
+# =============================================================================
+
+data_quality:
+  # File size limits
+  file_size:
+    max_size_mb: 5000  # 5GB per file
+    recommendation: "Split larger datasets into multiple files"
+    validation_message: "Files larger than 5GB should be split for better performance"
+  
+  # Missing data thresholds
+  missing_data:
+    max_null_percentage: 0.20  # 20% max nulls per column
+    critical_threshold: 0.50    # 50% triggers warning
+    validation_message: "Columns with >20% missing values may indicate data quality issues"
+  
+  # Data type consistency
+  type_consistency:
+    allow_mixed_types: false
+    check_against_schema: true
+    validation_message: "All values in a column must be of the same type"
+    schema_matching:
+      enabled: true
+      strict_mode: true
+      validation_message: "Column values must match the declared field type"
+      type_mapping:
+        # Expected Python types for each field type
+        string: ["str"]
+        integer: ["int", "int64", "int32"]
+        number: ["float", "float64", "int", "int64"]  # Numbers can be int or float
+        boolean: ["bool"]
+        date: ["datetime64", "date"]
+        datetime: ["datetime64", "datetime"]
+        time: ["datetime64", "time"]
+      numeric_must_have_unit: true
+      numeric_unit_validation: "Numeric fields must have a unit specified in the field definition"
+  
+  # Duplicate detection
+  duplicates:
+    check_duplicates: true
+    max_duplicate_percentage: 0.05  # 5% max duplicates
+    validation_message: "High duplicate rates may indicate data collection issues"
+  
+  # Numeric range validation
+  numeric_ranges:
+    check_outliers: true
+    outlier_method: "iqr"  # interquartile range
+    outlier_threshold: 3.0  # 3x IQR
+    validation_message: "Extreme outliers may indicate errors or need documentation"
+
+# =============================================================================
+# VALIDATION LEVELS
+# =============================================================================
+
+validation_levels:
+  # STRICT: All required fields present, all quality checks pass
+  strict:
+    description: "Production-ready dataset suitable for publication"
+    requirements:
+      - all_required_metadata_present: true
+      - all_required_resource_fields: true
+      - all_numeric_fields_have_units: true
+      - data_quality_checks_pass: true
+      - no_validation_errors: true
+    badge: "✅ STRICT COMPLIANCE"
+  
+  # STANDARD: All required fields present, minor quality issues allowed
+  standard:
+    description: "Good quality dataset ready for review"
+    requirements:
+      - all_required_metadata_present: true
+      - all_required_resource_fields: true
+      - all_numeric_fields_have_units: true
+      - max_quality_warnings: 5
+    badge: "✓ STANDARD COMPLIANCE"
+  
+  # BASIC: Minimal requirements for initial submission
+  basic:
+    description: "Draft dataset that needs improvements"
+    requirements:
+      - all_required_metadata_present: true
+      - at_least_one_resource: true
+      - max_quality_errors: 10
+    badge: "~ BASIC COMPLIANCE"
+  
+  # INVALID: Does not meet minimum requirements
+  invalid:
+    description: "Dataset cannot be processed"
+    badge: "✗ NON-COMPLIANT"
+
+# =============================================================================
+# ERROR MESSAGES AND HELP
+# =============================================================================
+
+error_messages:
+  missing_required_field: "Required field '{field}' is missing. {help}"
+  invalid_format: "Field '{field}' has invalid format. Expected: {expected}, Got: {actual}"
+  quality_threshold_exceeded: "Data quality check '{check}' failed: {reason}"
+  numeric_field_missing_unit: "Numeric field '{field}' must specify a unit of measurement"
+  invalid_field_type: "Field '{field}' has invalid type '{type}'. Must be one of: {valid_types}"
+
+help_urls:
+  frictionless_spec: "https://specs.frictionlessdata.org/data-package/"
+  qudt_units: "http://qudt.org/vocab/unit/"
+  spdx_licenses: "https://spdx.org/licenses/"
+  semantic_versioning: "https://semver.org/"
+  trailpack_docs: "https://github.com/TimoDiepers/trailpack"
+
+# =============================================================================
+# CHANGELOG
+# =============================================================================
+
+changelog:
+  - version: "1.0.0"
+    date: "2025-10-15"
+    changes:
+      - "Initial standard definition"
+      - "Based on Frictionless Data Package specification"
+      - "Added requirements for numeric field units"
+      - "Added data quality validation rules"
+      - "Defined three validation levels: STRICT, STANDARD, BASIC"

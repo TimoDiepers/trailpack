@@ -110,6 +110,46 @@ The schema classes provide everything needed for UI frameworks:
 
 See `examples/datapackage_ui_demo.py` for detailed usage examples.
 
+## 🔍 Validation System
+
+Trailpack includes a comprehensive validation system to ensure data quality and standards compliance:
+
+### Features
+- ✅ **Metadata validation**: Required fields, naming conventions, license checking
+- ✅ **Data quality checks**: Missing values, duplicates, type consistency
+- ✅ **Schema matching**: Validates data types match field definitions
+- ✅ **Unit requirements**: All numeric fields must have units (including dimensionless)
+- ✅ **Compliance levels**: STRICT, STANDARD, BASIC, or NON-COMPLIANT
+
+### Quick Example
+```python
+from trailpack.validation import StandardValidator
+
+# Create validator
+validator = StandardValidator("1.0.0")
+
+# Validate everything
+result = validator.validate_all(
+    metadata=metadata_dict,
+    df=dataframe,
+    schema=schema_dict
+)
+
+# Check results
+if result.is_valid:
+    print(f"{result.level}")  # e.g., "✅ STRICT COMPLIANCE"
+else:
+    print(result)  # Shows all errors and warnings
+```
+
+### Unit Requirements
+All numeric fields must specify units, even for dimensionless quantities:
+- **Measurements**: Use SI or domain units (kg, m, °C)
+- **IDs/Counts**: Use dimensionless unit (`http://qudt.org/vocab/unit/NUM`)
+- **Percentages**: Use percent or dimensionless
+
+See [trailpack/validation/README.md](trailpack/validation/README.md) for complete documentation.
+
 ## Contributing
 
 Contributions are very welcome.

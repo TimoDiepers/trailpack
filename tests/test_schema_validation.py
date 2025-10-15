@@ -1,0 +1,368 @@
+"""Tests for schema-based data validation."""
+
+import pandas as pd
+import pytest
+from trailpack.validation import StandardValidator
+
+
+@pytest.fixture
+def validator():
+    """Create a StandardValidator instance."""
+    return StandardValidator()
+
+
+@pytest.fixture
+def sample_schema():
+    """Create a sample schema for testing."""
+    return {
+        "fields": [
+            {
+                "name": "id",
+                "type": "integer",
+                "description": "Unique identifier",
+                "unit": {
+                    "name": "dimensionless",
+                    "long_name": "dimensionless number",
+                    "path": "http://qudt.org/vocab/unit/NUM"
+                }
+            },
+            {
+                "name": "name",
+                "type": "string",
+                "description": "Name of the item"
+            },
+            {
+                "name": "mass",
+                "type": "number",
+                "description": "Mass measurement",
+                "unit": {
+                    "name": "kg",
+                    "long_name": "kilogram",
+                    "path": "http://qudt.org/vocab/unit/KiloGM"
+                }
+            },
+            {
+                "name": "temperature",
+                "type": "number",
+                "description": "Temperature measurement",
+                "unit": {
+                    "name": "degC",
+                    "long_name": "degree Celsius",
+                    "path": "http://qudt.org/vocab/unit/DEG_C"
+                }
+            },
+            {
+                "name": "is_active",
+                "type": "boolean",
+                "description": "Active status"
+            },
+            {
+                "name": "count",
+                "type": "integer",
+                "description": "Count of items",
+                "unit": {
+                    "name": "dimensionless",
+                    "long_name": "dimensionless number",
+                    "path": "http://qudt.org/vocab/unit/NUM"
+                }
+            }
+        ]
+    }
+
+
+@pytest.fixture
+def valid_dataframe():
+    """Create a valid DataFrame matching the schema."""
+    return pd.DataFrame({
+        "id": [1, 2, 3],
+        "name": ["A", "B", "C"],
+        "mass": [10.5, 20.3, 15.7],
+        "temperature": [25.0, 30.0, 28.5],
+        "is_active": [True, False, True],
+        "count": [5, 10, 8]
+    })
+
+
+def test_valid_data_passes_schema_validation(validator, sample_schema, valid_dataframe):
+    """Test that valid data passes schema validation."""
+    result = validator.validate_data_quality(valid_dataframe, schema=sample_schema)
+    
+    # Should have no schema-matching errors
+    schema_errors = [e for e in result.errors if "schema_matching" in str(e)]
+    assert len(schema_errors) == 0, f"Expected no schema errors, got: {schema_errors}"
+
+
+def test_type_mismatch_detected(validator, sample_schema):
+    """Test that type mismatches are detected."""
+    # Create DataFrame with wrong types
+    df = pd.DataFrame({
+        "id": ["not_an_integer", "also_string", "still_string"],  # Should be integer
+        "name": ["A", "B", "C"],
+        "mass": [10.5, 20.3, 15.7],
+        "temperature": [25.0, 30.0, 28.5],
+        "is_active": [True, False, True],
+        "count": [5, 10, 8]
+    })
+    
+    result = validator.validate_data_quality(df, schema=sample_schema)
+    
+    # Should have error for 'id' column
+    errors_str = " ".join([str(e) for e in result.errors])
+    assert "id" in errors_str
+    assert "integer" in errors_str or "int" in errors_str
+
+
+def test_numeric_without_unit_detected(validator):
+    """Test that numeric fields without units are detected."""
+    # Schema with numeric field but no unit
+    schema = {
+        "fields": [
+            {
+                "name": "value",
+                "type": "number",
+                "description": "A numeric value"
+                # No unit specified!
+            }
+        ]
+    }
+    
+    df = pd.DataFrame({
+        "value": [1.0, 2.0, 3.0]
+    })
+    
+    result = validator.validate_data_quality(df, schema=schema)
+    
+    # Should have error about missing unit
+    errors_str = " ".join([str(e) for e in result.errors])
+    assert "unit" in errors_str.lower()
+    assert "value" in errors_str
+
+
+def test_mixed_types_in_column(validator, sample_schema):
+    """Test that mixed types within a column are detected."""
+    # Create DataFrame with mixed types in 'name' column
+    df = pd.DataFrame({
+        "id": [1, 2, 3],
+        "name": ["A", 123, "C"],  # Mixed string and int
+        "mass": [10.5, 20.3, 15.7],
+        "temperature": [25.0, 30.0, 28.5],
+        "is_active": [True, False, True],
+        "count": [5, 10, 8]
+    })
+    
+    result = validator.validate_data_quality(df, schema=sample_schema)
+    
+    # Should have error about mixed types
+    errors_str = " ".join([str(e) for e in result.errors])
+    assert "name" in errors_str
+    assert "mixed" in errors_str.lower() or "type" in errors_str.lower()
+
+
+def test_missing_column_warning(validator, sample_schema):
+    """Test that missing columns generate warnings."""
+    # Create DataFrame missing some columns
+    df = pd.DataFrame({
+        "id": [1, 2, 3],
+        "name": ["A", "B", "C"]
+        # Missing: mass, temperature, is_active, count
+    })
+    
+    result = validator.validate_data_quality(df, schema=sample_schema)
+    
+    # Should have warnings about missing columns
+    warnings_str = " ".join([str(w) for w in result.warnings])
+    assert "mass" in warnings_str or "temperature" in warnings_str
+
+
+def test_extra_column_warning(validator, sample_schema):
+    """Test that extra columns generate warnings."""
+    # Create DataFrame with extra columns
+    df = pd.DataFrame({
+        "id": [1, 2, 3],
+        "name": ["A", "B", "C"],
+        "mass": [10.5, 20.3, 15.7],
+        "temperature": [25.0, 30.0, 28.5],
+        "is_active": [True, False, True],
+        "count": [5, 10, 8],
+        "extra_column": [100, 200, 300]  # Not in schema
+    })
+    
+    result = validator.validate_data_quality(df, schema=sample_schema)
+    
+    # Should have warning about extra column
+    warnings_str = " ".join([str(w) for w in result.warnings])
+    assert "extra_column" in warnings_str
+
+
+def test_validation_without_schema(validator, valid_dataframe):
+    """Test that validation still works without schema."""
+    # Should not crash when schema is None
+    result = validator.validate_data_quality(valid_dataframe, schema=None)
+    
+    # Should still perform basic validations
+    assert result is not None
+    assert hasattr(result, 'errors')
+    assert hasattr(result, 'warnings')
+
+
+def test_boolean_type_validation(validator):
+    """Test boolean type validation."""
+    schema = {
+        "fields": [
+            {
+                "name": "flag",
+                "type": "boolean",
+                "description": "A boolean flag"
+            }
+        ]
+    }
+    
+    # Wrong type for boolean
+    df = pd.DataFrame({
+        "flag": ["yes", "no", "yes"]  # Should be bool
+    })
+    
+    result = validator.validate_data_quality(df, schema=schema)
+    
+    errors_str = " ".join([str(e) for e in result.errors])
+    assert "flag" in errors_str
+    assert "boolean" in errors_str.lower()
+
+
+def test_integer_vs_number_types(validator):
+    """Test differentiation between integer and number types."""
+    schema = {
+        "fields": [
+            {
+                "name": "count",
+                "type": "integer",
+                "description": "Integer count",
+                "unit": {
+                    "name": "dimensionless",
+                    "long_name": "dimensionless number",
+                    "path": "http://qudt.org/vocab/unit/NUM"
+                }
+            },
+            {
+                "name": "value",
+                "type": "number",
+                "description": "Numeric value",
+                "unit": {
+                    "name": "m",
+                    "long_name": "meter",
+                    "path": "http://qudt.org/vocab/unit/M"
+                }
+            }
+        ]
+    }
+    
+    # Valid: integers for count, floats for value
+    df = pd.DataFrame({
+        "count": [1, 2, 3],
+        "value": [1.5, 2.7, 3.9]
+    })
+    
+    result = validator.validate_data_quality(df, schema=schema)
+    
+    # Should pass - both integer and number types accept numeric dtypes
+    schema_errors = [e for e in result.errors if "schema_matching" in str(e)]
+    assert len(schema_errors) == 0
+
+
+def test_validate_all_with_schema(validator, sample_schema, valid_dataframe):
+    """Test validate_all method passes schema to data quality validation."""
+    # Create complete metadata with schema
+    metadata = {
+        "name": "test-dataset",
+        "title": "Test Dataset",
+        "description": "A test dataset for validation",
+        "version": "1.0.0",
+        "licenses": [
+            {
+                "name": "CC-BY-4.0",
+                "path": "https://creativecommons.org/licenses/by/4.0/",
+                "title": "Creative Commons Attribution 4.0"
+            }
+        ],
+        "contributors": [
+            {
+                "title": "Test Author",
+                "role": "author",
+                "email": "author@example.com"
+            }
+        ],
+        "sources": [
+            {
+                "title": "Test Source",
+                "path": "https://example.com/data"
+            }
+        ],
+        "resources": [
+            {
+                "name": "main-data",
+                "path": "data.csv",
+                "schema": sample_schema
+            }
+        ]
+    }
+    
+    result = validator.validate_all(metadata=metadata, df=valid_dataframe)
+    
+    # Should have no schema errors for valid data
+    assert result is not None
+    schema_errors = [e for e in result.errors if "schema_matching" in str(e)]
+    assert len(schema_errors) == 0
+
+
+def test_validate_all_with_invalid_data(validator, sample_schema):
+    """Test validate_all detects schema violations in data."""
+    # Create metadata with schema
+    metadata = {
+        "name": "test-dataset",
+        "title": "Test Dataset",
+        "description": "A test dataset for validation",
+        "version": "1.0.0",
+        "licenses": [
+            {
+                "name": "CC-BY-4.0",
+                "path": "https://creativecommons.org/licenses/by/4.0/",
+                "title": "Creative Commons Attribution 4.0"
+            }
+        ],
+        "contributors": [
+            {
+                "title": "Test Author",
+                "role": "author",
+                "email": "author@example.com"
+            }
+        ],
+        "sources": [
+            {
+                "title": "Test Source",
+                "path": "https://example.com/data"
+            }
+        ],
+        "resources": [
+            {
+                "name": "main-data",
+                "path": "data.csv",
+                "schema": sample_schema
+            }
+        ]
+    }
+    
+    # Create invalid DataFrame (string where number expected)
+    df = pd.DataFrame({
+        "id": [1, 2, 3],
+        "name": ["A", "B", "C"],
+        "mass": ["not_a_number", "still_not", "nope"],  # Should be numeric!
+        "temperature": [25.0, 30.0, 28.5],
+        "is_active": [True, False, True],
+        "count": [5, 10, 8]
+    })
+    
+    result = validator.validate_all(metadata=metadata, df=df)
+    
+    # Should have errors about type mismatch
+    errors_str = " ".join([str(e) for e in result.errors])
+    assert "mass" in errors_str
