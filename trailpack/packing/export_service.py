@@ -14,6 +14,7 @@ from trailpack.packing.datapackage_schema import (
     DataPackageSchema
 )
 from trailpack.packing.packing import Packing
+from trailpack.validation.standard_validator import StandardValidator
 
 
 class DataPackageExporter:
@@ -26,7 +27,8 @@ class DataPackageExporter:
         general_details: Dict[str, Any],
         sheet_name: str,
         file_name: str,
-        suggestions_cache: Dict[str, List] = None
+        suggestions_cache: Dict[str, List] = None,
+        standard_version: str = "1.0.0"
     ):
         """
         Initialize with UI session state data.
@@ -38,6 +40,7 @@ class DataPackageExporter:
             sheet_name: Name of the Excel sheet
             file_name: Original file name
             suggestions_cache: Cache of PyST suggestions with id and label
+            standard_version: Trailpack standard version to validate against
         """
         self.df = df
         self.column_mappings = column_mappings
@@ -46,6 +49,7 @@ class DataPackageExporter:
         self.file_name = file_name
         self.suggestions_cache = suggestions_cache or {}
         self.schema = DataPackageSchema()
+        self.validator = StandardValidator(standard_version)
 
     def validate(self) -> Tuple[bool, List[str]]:
         """Validate all inputs before processing."""
@@ -182,9 +186,23 @@ class DataPackageExporter:
 
         return builder.build()
 
-    def export(self, output_path: str) -> str:
-        """Execute full export workflow and write Parquet."""
-        # Validate
+    def export(self, output_path: str, validate_standard: bool = True) -> Tuple[str, Optional[str]]:
+        """
+        Execute full export workflow and write Parquet.
+
+        Args:
+            output_path: Path where Parquet file will be written
+            validate_standard: Whether to validate against Trailpack standard (default: True)
+
+        Returns:
+            Tuple of (output_path, quality_level)
+            - output_path: Path to exported Parquet file
+            - quality_level: Validation level ("STRICT", "STANDARD", "BASIC", "INVALID") or None if validation skipped
+
+        Raises:
+            ValueError: If validation fails or data quality issues found
+        """
+        # Validate basic inputs
         is_valid, errors = self.validate()
         if not is_valid:
             raise ValueError(f"Validation failed: {', '.join(errors)}")
@@ -201,11 +219,27 @@ class DataPackageExporter:
         # Build metadata
         metadata = self.build_metadata(resource)
 
+        # Validate against Trailpack standard (if enabled)
+        quality_level = None
+        if validate_standard:
+            validation_result = self.validator.validate_all(
+                metadata=metadata,
+                df=self.df,
+                mappings=self.column_mappings
+            )
+
+            # Check if validation passed
+            if not validation_result.is_valid:
+                error_msg = self._format_validation_errors(validation_result)
+                raise ValueError(error_msg)
+
+            quality_level = validation_result.level  # "STRICT", "STANDARD", "BASIC", or "INVALID"
+
         # Write to Parquet
         packer = Packing(data=self.df, meta_data=metadata)
         packer.write_parquet(output_path)
 
-        return output_path
+        return output_path, quality_level
 
     def _validate_dataframe_for_parquet(self, df: pd.DataFrame) -> None:
         """Validate DataFrame is compatible with Arrow/Parquet format.
@@ -274,3 +308,33 @@ class DataPackageExporter:
                 except Exception:
                     continue
         return None
+
+    def _format_validation_errors(self, validation_result) -> str:
+        """Format validation errors for better readability."""
+        lines = []
+        lines.append("=" * 80)
+        lines.append("STANDARD VALIDATION FAILED")
+        lines.append("=" * 80)
+
+        if validation_result.level:
+            lines.append(f"\nValidation Level: {validation_result.level}")
+
+        # Format errors
+        if validation_result.errors:
+            lines.append(f"\nERRORS ({len(validation_result.errors)}):")
+            lines.append("-" * 80)
+            for i, error in enumerate(validation_result.errors, 1):
+                lines.append(f"{i}. {error}")
+
+        # Format warnings
+        if validation_result.warnings:
+            lines.append(f"\nWARNINGS ({len(validation_result.warnings)}):")
+            lines.append("-" * 80)
+            for i, warning in enumerate(validation_result.warnings, 1):
+                lines.append(f"{i}. {warning}")
+
+        lines.append("\n" + "=" * 80)
+        lines.append("Please fix the errors above and try again.")
+        lines.append("=" * 80)
+
+        return "\n".join(lines)

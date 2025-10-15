@@ -175,16 +175,17 @@ Simplified Architecture: Local-First Data Quality Tool
 
   What Stays (Core Value):
 
-  | Component         | Purpose                      | Status          |
-  |-------------------|------------------------------|-----------------|
-  | Streamlit UI      | Interactive ontology mapping | ✅ Already works |
-  | PyST Client       | Get ontology suggestions     | ✅ Already works |
-  | Excel Reader      | Load data                    | ✅ Already works |
-  | Export Service    | Build data package           | ✅ Already works |
-  | Packing           | Write Parquet                | ✅ Already works |
-  | StandardValidator | Validate against rules       | 🔲 Need to add  |
-  | CLI               | Power user interface         | 🔲 Need to add  |
-  | Config Export     | Save mapping templates       | 🔲 Need to add  |
+  | Component         | Purpose                      | Status            |
+  |-------------------|------------------------------|-------------------|
+  | Streamlit UI      | Interactive ontology mapping | [x] Already works |
+  | PyST Client       | Get ontology suggestions     | [x] Already works |
+  | Excel Reader      | Load data                    | [x] Already works |
+  | Export Service    | Build data package           | [x] Already works |
+  | Packing           | Write Parquet                | [x] Already works |
+  | StandardValidator | Validate against rules       | [x] Implemented   |
+  | SmartDataReader   | Adaptive file reading        | [~] In progress   |
+  | CLI               | Power user interface         | [ ] Need to add   |
+  | Config Export     | Save mapping templates       | [ ] Need to add   |
 
 ⏺ Final Architecture: Open Source Data Quality Tool
 
@@ -233,44 +234,46 @@ Simplified Architecture: Local-First Data Quality Tool
 
   Current State vs. Target State:
 
-  | Feature                     | Status  | Priority |
-  |-----------------------------|---------|----------|
-  | ✅ Streamlit UI              | Working | Done    |
-  | ✅ Excel loading             | Working | Done    |
-  | ✅ PyST ontology mapping     | Working | Done    |
-  | ✅ Metadata form             | Working | Done    |
-  | ✅ Parquet export            | Working | Done    |
-  | ✅ Data preview              | Working | Done    |
-  | 🔲 StandardValidator        | Missing | HIGH     |
-  | 🔲 Config export (JSON)     | Missing | HIGH     |
-  | 🔲 CLI interface            | Missing | Medium   |
-  | 🔲 Desktop app packaging    | Missing | Medium   |
-  | 🔲 Config templates library | Missing | Low      |
+  | Feature                     | Status       | Priority |
+  |-----------------------------|--------------|----------|
+  | [x] Streamlit UI            | Working      | Done     |
+  | [x] Excel loading           | Working      | Done     |
+  | [x] PyST ontology mapping   | Working      | Done     |
+  | [x] Metadata form           | Working      | Done     |
+  | [x] Parquet export          | Working      | Done     |
+  | [x] Data preview            | Working      | Done     |
+  | [x] StandardValidator       | Implemented  | Done     |
+  | [~] SmartDataReader         | In progress  | HIGH     |
+  | [ ] Config export (JSON)    | Missing      | HIGH     |
+  | [ ] CLI interface           | Missing      | Medium   |
+  | [ ] Desktop app packaging   | Missing      | Low      |
+  | [ ] Config templates library| Missing      | Low      |
 
   Immediate Next Steps (Implementation Priority):
 
-  1. Add StandardValidator (Critical)
+  1. [x] Add StandardValidator - DONE (692 lines implemented)
+     - Full metadata, resource, and field validation
+     - Data quality checks (nulls, mixed types, duplicates)
+     - Schema matching validation
+     - Validation levels (strict/standard/basic/invalid)
 
-  # Enforce submission standards
-  validator = StandardValidator("v1.0.0")
-  is_valid, errors, quality = validator.validate_all(df, metadata, mappings)
+  2. [ ] Complete SmartDataReader (In Progress)
+     - [x] Engine selection logic
+     - [ ] Implement read() method
+     - [ ] Add pandas/polars/pyarrow readers
+     - [ ] Add estimate_memory() method
 
-  if not is_valid:
-      st.error(f"Cannot export: {errors}")
-  else:
-      st.success(f"✅ Quality Level: {quality}")
-
-  2. Add Config Export (Critical)
+  3. [ ] Add Config Export (Critical)
 
   # After successful export, download config templates
   st.download_button("📋 Download Mapping Template", mapping_json)
   st.download_button("📄 Download Metadata Template", metadata_json)
 
-  3. Add CLI (Nice to have)
+  4. [ ] Add CLI (Nice to have)
 
   trailpack process --data file.xlsx --config mapping.json
 
-  4. Package for Distribution (Polish)
+  5. [ ] Package for Distribution (Polish)
 
   # PyPI
   pip install trailpack
@@ -767,8 +770,37 @@ Simplified Architecture: Local-First Data Quality Tool
 
   Implementation Plan:
 
-  1. Add polars dependency ✅ (just update pyproject.toml)
-  2. Create SmartDataReader (new file, ~200 lines)
-  3. Update streamlit_app.py (replace pd.read_excel → SmartDataReader)
-  4. Add StreamingValidator (for huge files)
-  5. Keep pandas for output (rest of code expects it)
+  1. [x] Add polars dependency (update pyproject.toml)
+  2. [~] Create SmartDataReader (io/smart_reader.py - engine selection done)
+  3. [ ] Complete SmartDataReader read() methods
+  4. [ ] Update streamlit_app.py (replace pd.read_excel → SmartDataReader)
+  5. [ ] Add StreamingValidator (for huge files)
+  6. [x] Keep pandas for output (rest of code expects it)
+
+---
+
+## Current Status Summary (Updated)
+
+### Completed Components
+- [x] Streamlit UI (4-page workflow: upload → sheet selection → column mapping → metadata)
+- [x] PyST API integration (ontology and unit suggestions)
+- [x] Excel/CSV reading (via pandas, ready for SmartDataReader upgrade)
+- [x] DataPackageExporter (builds Frictionless metadata)
+- [x] Packing service (writes Parquet with embedded metadata)
+- [x] StandardValidator (692 lines, full validation suite)
+- [x] Data quality validation (mixed types, nulls, duplicates)
+- [x] Config download for validation results
+
+### In Progress
+- [~] SmartDataReader (engine selection logic implemented, read methods pending)
+
+### Priority Next Steps
+1. **HIGH**: Complete SmartDataReader implementation
+2. **HIGH**: Config export (download mapping + metadata JSON)
+3. **MEDIUM**: CLI interface
+4. **LOW**: Desktop packaging
+
+### Files to Test
+- `tests/test_smart_reader.py` (place unit tests here)
+- `tests/test_standard_validator.py` (needs to be created)
+- `tests/test_export_service.py` (needs to be created)

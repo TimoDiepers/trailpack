@@ -1015,10 +1015,11 @@ elif st.session_state.page == 4:
                     )
 
                     with tempfile.NamedTemporaryFile(delete=False, suffix='.parquet') as tmp:
-                        output_path = exporter.export(tmp.name)
+                        output_path, quality_level = exporter.export(tmp.name)
 
                         # Store in session state for display
                         st.session_state.output_path = output_path
+                        st.session_state.quality_level = quality_level
                         st.session_state.export_complete = True
 
                 except Exception as e:
@@ -1034,7 +1035,9 @@ elif st.session_state.page == 4:
             # Read back the exported file
             exported_df, exported_metadata = read_parquet(st.session_state.output_path)
 
-            st.success(f"✅ Data package created successfully!")
+            # Display success message with quality level
+            quality_level = st.session_state.get("quality_level", "VALID")
+            st.success(f"Data package created successfully!\n\n**Validation Level:** {quality_level}")
 
             # Display data sample
             st.markdown("### 📊 Data Sample (first 10 rows)")
