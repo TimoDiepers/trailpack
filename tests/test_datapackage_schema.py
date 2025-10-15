@@ -10,6 +10,7 @@ from trailpack.packing.datapackage_schema import (
     Field,
     FieldConstraints,
     Resource,
+    Unit,
     COMMON_LICENSES
 )
 
@@ -21,12 +22,19 @@ class TestDataPackageSchema:
         """Test schema initializes correctly."""
         schema = DataPackageSchema()
         
-        assert len(schema.get_required_fields()) == 2
-        assert "name" in schema.get_required_fields()
-        assert "resources" in schema.get_required_fields()
+        # Check that required fields list is correct
+        required_fields = schema.get_required_fields()
+        assert len(required_fields) == 7
+        assert "name" in required_fields
+        assert "resources" in required_fields
+        assert "title" in required_fields
+        assert "licenses" in required_fields
+        assert "created" in required_fields
+        assert "contributors" in required_fields
+        assert "sources" in required_fields
         
         assert len(schema.get_recommended_fields()) > 0
-        assert "title" in schema.get_recommended_fields()
+        assert "description" in schema.get_recommended_fields()
     
     def test_field_definitions(self):
         """Test field definitions are properly structured."""
@@ -128,6 +136,9 @@ class TestMetaDataBuilder:
         # Add contributor
         builder.add_contributor("Test User", "author", "test@example.com")
         
+        # Add source (now required)
+        builder.add_source("Test Source", "https://example.com")
+        
         # Add resource
         resource = Resource(
             name="data",
@@ -144,6 +155,7 @@ class TestMetaDataBuilder:
         assert metadata["title"] == "Test Dataset"
         assert len(metadata["licenses"]) == 1
         assert len(metadata["contributors"]) == 1
+        assert len(metadata["sources"]) == 1
         assert len(metadata["resources"]) == 1
         
         # Verify it's valid JSON
@@ -172,6 +184,7 @@ class TestMetaDataBuilder:
                    .set_keywords(["test", "fluent"])
                    .add_license("CC0-1.0")
                    .add_contributor("Test Author")
+                   .add_source("Test Source", "https://example.com")
                    .add_resource(Resource(name="data", path="test.csv"))
                    .build())
         
@@ -180,6 +193,7 @@ class TestMetaDataBuilder:
         assert "test" in metadata["keywords"]
         assert len(metadata["licenses"]) == 1
         assert len(metadata["contributors"]) == 1
+        assert len(metadata["sources"]) == 1
         assert len(metadata["resources"]) == 1
 
 
@@ -194,12 +208,17 @@ class TestFieldAndResource:
             maximum=100
         )
         
+        unit = Unit(
+            name="°C",
+            long_name="degree Celsius",
+            path="http://qudt.org/vocab/unit/DegreeCelsius"
+        )
+        
         field = Field(
             name="temperature",
             type="number",
             description="Temperature measurement",
-            unit="°C",
-            unit_code="http://qudt.org/vocab/unit/DegreeCelsius",
+            unit=unit,
             constraints=constraints
         )
         
@@ -207,14 +226,22 @@ class TestFieldAndResource:
         
         assert field_dict["name"] == "temperature"
         assert field_dict["type"] == "number" 
-        assert field_dict["unit"] == "°C"
+        assert field_dict["unit"]["name"] == "°C"
+        assert field_dict["unit"]["longName"] == "degree Celsius"
         assert field_dict["constraints"]["required"] is True
         assert field_dict["constraints"]["minimum"] == 0
     
     def test_resource_with_schema(self):
         """Test resource with field schema."""
+        # Create unit for dimensionless number (id)
+        id_unit = Unit(
+            name="NUM",
+            long_name="dimensionless number",
+            path="https://vocab.sentier.dev/web/concept/https%3A//vocab.sentier.dev/units/unit/NUM?concept_scheme=https%3A%2F%2Fvocab.sentier.dev%2Funits%2F&language=en"
+        )
+        
         fields = [
-            Field(name="id", type="integer", description="Identifier"),
+            Field(name="id", type="integer", description="Identifier", unit=id_unit),
             Field(name="name", type="string", description="Name")
         ]
         
