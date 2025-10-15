@@ -32,6 +32,7 @@ import pandas as pd
 import openpyxl
 
 from trailpack.excel import ExcelReader
+from trailpack.io.smart_reader import SmartDataReader
 from trailpack.pyst.api.requests.suggest import SUPPORTED_LANGUAGES
 from trailpack.pyst.api.client import get_suggest_client
 from trailpack.packing.datapackage_schema import DataPackageSchema, COMMON_LICENSES
@@ -124,16 +125,20 @@ def on_sheet_change():
 
 
 def load_excel_data(sheet_name: str) -> pd.DataFrame:
-    """Load Excel data into a pandas DataFrame."""
+    """Load Excel data into a pandas DataFrame using SmartDataReader."""
     if st.session_state.temp_path is None:
         return None
-    
+
     try:
-        df = pd.read_excel(
-            st.session_state.temp_path,
-            sheet_name=sheet_name,
-            header=0
-        )
+        # Use SmartDataReader for optimized reading
+        smart_reader = SmartDataReader(st.session_state.temp_path)
+
+        # Store engine info in session state for display
+        st.session_state.reader_engine = smart_reader.engine
+        st.session_state.estimated_memory = smart_reader.estimate_memory()
+
+        # Read data with optimal engine
+        df = smart_reader.read(sheet_name=sheet_name)
         return df
     except Exception as e:
         st.error(f"Error loading Excel data: {e}")
@@ -323,6 +328,11 @@ if st.session_state.page == 1:
 
     st.session_state.language = language
 
+    # Show file info if file exists
+    if st.session_state.temp_path and st.session_state.temp_path.exists():
+        file_size_mb = st.session_state.temp_path.stat().st_size / (1024 * 1024)
+        st.info(f"**File:** {st.session_state.file_name} | **Size:** {file_size_mb:.2f} MB")
+
     # Navigation
     col1, col2, col3 = st.columns([1, 1, 1])
 
@@ -403,7 +413,14 @@ elif st.session_state.page == 2:
                         st.metric("Columns", column_count)
                     with col3:
                         st.metric("Non-empty cells", df.notna().sum().sum())
-                    
+
+                    # Show SmartDataReader engine info
+                    if hasattr(st.session_state, 'reader_engine') and hasattr(st.session_state, 'estimated_memory'):
+                        st.caption(
+                            f"**Engine:** {st.session_state.reader_engine} | "
+                            f"**Est. Memory:** {st.session_state.estimated_memory}"
+                        )
+
                     # Show first few rows
                     st.markdown("**First 10 rows:**")
                     st.dataframe(df.head(10), use_container_width=True)
@@ -456,62 +473,6 @@ elif st.session_state.page == 3:
                 with col2:
                     # Check if column is numeric
                     is_numeric = pd.api.types.is_numeric_dtype(st.session_state.df[column])
-
-                    # If numeric, show unit search field first
-                    if is_numeric:
-                        # Unit search field
-                        unit_search_query = st.text_input(
-                            "Search for unit",
-                            key=f"search_unit_{column}",
-                            placeholder="Type and press Enter to search...",
-                            label_visibility="visible"
-                        )
-
-                        # Fetch and display unit suggestions
-                        if unit_search_query and len(unit_search_query) >= 2:
-                            cache_key = f"{column}_unit_{unit_search_query}"
-                            if cache_key not in st.session_state.suggestions_cache:
-                                suggestions = fetch_suggestions_sync(unit_search_query, st.session_state.language)
-                                st.session_state.suggestions_cache[cache_key] = suggestions[:5]
-
-                            # Show unit suggestions dropdown
-                            suggestions = st.session_state.suggestions_cache.get(cache_key, [])
-                            if suggestions:
-                                valid_suggestions = []
-                                for s in suggestions:
-                                    try:
-                                        if isinstance(s, dict):
-                                            s_id = s.get('id') or s.get('id_') or s.get('uri') or s.get('concept_id')
-                                            s_label = s.get('label') or s.get('name') or s.get('title')
-                                        else:
-                                            s_id = getattr(s, 'id', None) or getattr(s, 'id_', None) or getattr(s, 'uri', None)
-                                            s_label = getattr(s, 'label', None) or getattr(s, 'name', None)
-                                        if s_id and s_label:
-                                            valid_suggestions.append({'id': s_id, 'label': s_label})
-                                    except Exception:
-                                        continue
-
-                                if valid_suggestions:
-                                    options = [s['label'] for s in valid_suggestions]
-                                    option_ids = [s['id'] for s in valid_suggestions]
-
-                                    # Get current selection index for unit
-                                    current_unit_mapping = st.session_state.column_mappings.get(f"{column}_unit")
-                                    default_idx = 0
-                                    if current_unit_mapping in option_ids:
-                                        default_idx = option_ids.index(current_unit_mapping)
-
-                                    selected = st.selectbox(
-                                        "Select unit from results",
-                                        options=options,
-                                        index=default_idx,
-                                        key=f"select_unit_{column}",
-                                        label_visibility="visible"
-                                    )
-
-                                    # Store unit selection
-                                    selected_idx = options.index(selected)
-                                    st.session_state.column_mappings[f"{column}_unit"] = option_ids[selected_idx]
 
                     # Ontology search field (for all columns)
                     search_query = st.text_input(
@@ -566,6 +527,62 @@ elif st.session_state.page == 3:
                                 # Store selection
                                 selected_idx = options.index(selected)
                                 st.session_state.column_mappings[column] = option_ids[selected_idx]
+
+                    # If numeric, show unit search field below ontology
+                    if is_numeric:
+                        # Unit search field
+                        unit_search_query = st.text_input(
+                            "Search for unit",
+                            key=f"search_unit_{column}",
+                            placeholder="Type and press Enter to search...",
+                            label_visibility="visible"
+                        )
+
+                        # Fetch and display unit suggestions
+                        if unit_search_query and len(unit_search_query) >= 2:
+                            cache_key = f"{column}_unit_{unit_search_query}"
+                            if cache_key not in st.session_state.suggestions_cache:
+                                suggestions = fetch_suggestions_sync(unit_search_query, st.session_state.language)
+                                st.session_state.suggestions_cache[cache_key] = suggestions[:5]
+
+                            # Show unit suggestions dropdown
+                            suggestions = st.session_state.suggestions_cache.get(cache_key, [])
+                            if suggestions:
+                                valid_suggestions = []
+                                for s in suggestions:
+                                    try:
+                                        if isinstance(s, dict):
+                                            s_id = s.get('id') or s.get('id_') or s.get('uri') or s.get('concept_id')
+                                            s_label = s.get('label') or s.get('name') or s.get('title')
+                                        else:
+                                            s_id = getattr(s, 'id', None) or getattr(s, 'id_', None) or getattr(s, 'uri', None)
+                                            s_label = getattr(s, 'label', None) or getattr(s, 'name', None)
+                                        if s_id and s_label:
+                                            valid_suggestions.append({'id': s_id, 'label': s_label})
+                                    except Exception:
+                                        continue
+
+                                if valid_suggestions:
+                                    options = [s['label'] for s in valid_suggestions]
+                                    option_ids = [s['id'] for s in valid_suggestions]
+
+                                    # Get current selection index for unit
+                                    current_unit_mapping = st.session_state.column_mappings.get(f"{column}_unit")
+                                    default_idx = 0
+                                    if current_unit_mapping in option_ids:
+                                        default_idx = option_ids.index(current_unit_mapping)
+
+                                    selected = st.selectbox(
+                                        "Select unit from results",
+                                        options=options,
+                                        index=default_idx,
+                                        key=f"select_unit_{column}",
+                                        label_visibility="visible"
+                                    )
+
+                                    # Store unit selection
+                                    selected_idx = options.index(selected)
+                                    st.session_state.column_mappings[f"{column}_unit"] = option_ids[selected_idx]
 
                 st.markdown("---")
         

@@ -34,6 +34,8 @@ dependencies = [
     "openpyxl",
     "streamlit>=1.28.0",
     "pandas>=2.0.0",
+    "polars>=0.20.0",
+    "pyarrow>=14.0.0",
     "python-dotenv",
 ]
 
