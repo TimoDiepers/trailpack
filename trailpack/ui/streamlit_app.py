@@ -1015,11 +1015,13 @@ elif st.session_state.page == 4:
                     )
 
                     with tempfile.NamedTemporaryFile(delete=False, suffix='.parquet') as tmp:
-                        output_path, quality_level = exporter.export(tmp.name)
+                        output_path, quality_level, validation_result = exporter.export(tmp.name)
 
                         # Store in session state for display
                         st.session_state.output_path = output_path
                         st.session_state.quality_level = quality_level
+                        st.session_state.validation_result = validation_result
+                        st.session_state.exporter = exporter
                         st.session_state.export_complete = True
 
                 except Exception as e:
@@ -1058,6 +1060,22 @@ elif st.session_state.page == 4:
                 mime="application/vnd.apache.parquet",
                 use_container_width=True
             )
+
+            # Validation report download
+            if st.session_state.get("validation_result") and st.session_state.get("exporter"):
+                validation_report = st.session_state.exporter.generate_validation_report(
+                    st.session_state.validation_result
+                )
+
+                report_filename = f"{export_name.replace('.parquet', '')}_validation_report.txt"
+
+                st.download_button(
+                    label="Download Validation Report",
+                    data=validation_report,
+                    file_name=report_filename,
+                    mime="text/plain",
+                    use_container_width=True
+                )
 
 
 # Footer

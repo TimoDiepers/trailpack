@@ -64,11 +64,40 @@ class PystSuggestClient:
         If the client is closed or tied to a different event loop,
         reinitialize it. This is necessary for Streamlit compatibility.
         """
+        import asyncio
+
         if self._api_client is None:
             self._initialize_client()
-        elif self._api_client.is_closed:
+            return
+
+        if self._api_client.is_closed:
             # Client is closed, reinitialize
             self._initialize_client()
+            return
+
+        # For Streamlit: always recreate client if we're in a new event loop
+        # This avoids "bound to different event loop" errors
+        try:
+            current_loop = asyncio.get_running_loop()
+        except RuntimeError:
+            # No running loop, client is fine
+            return
+
+        # Store the loop ID when client is created, check if it changed
+        if not hasattr(self, '_loop_id'):
+            self._loop_id = id(current_loop)
+        elif self._loop_id != id(current_loop):
+            # Different event loop detected, recreate client
+            try:
+                # Try to close old client gracefully
+                import asyncio
+                asyncio.create_task(self._api_client.aclose())
+            except Exception:
+                pass
+            finally:
+                self._api_client = None
+                self._initialize_client()
+                self._loop_id = id(current_loop)
 
     @classmethod
     def get_instance(cls) -> "PystSuggestClient":
