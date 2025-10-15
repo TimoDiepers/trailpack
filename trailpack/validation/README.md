@@ -6,7 +6,8 @@ The validation module provides standards-based validation for Trailpack data pac
 
 The validator checks:
 - ✅ **Metadata completeness**: All required fields present
-- ✅ **Data quality**: Missing values, duplicates, type consistency
+- ✅ **Data quality metrics**: Missing values and duplicates (logged as info)
+- ✅ **Type consistency**: Mixed types and schema matching (raises errors)
 - ✅ **Field definitions**: Proper types, units for numeric fields
 - ✅ **Standards compliance**: Adherence to Frictionless Data Package spec
 
@@ -65,12 +66,14 @@ df = pd.read_csv("mydata.csv")
 validator = StandardValidator("1.0.0")
 result = validator.validate_data_quality(df)
 
-# Check for quality issues
+# Data quality metrics are logged as info
+for info in result.info:
+    print(f"ℹ️  {info}")
+
+# Type consistency issues raise errors
 if not result.is_valid:
     for error in result.errors:
         print(f"❌ {error}")
-    for warning in result.warnings:
-        print(f"⚠️  {warning}")
 ```
 
 ### 3. Complete Validation
@@ -167,10 +170,30 @@ df = pd.DataFrame({
 validator = StandardValidator("1.0.0")
 result = validator.validate_data_quality(df, schema=schema)
 
+# Data quality metrics are logged as info
+for info in result.info:
+    print(f"ℹ️  {info}")
+
+# Type consistency errors
 if not result.is_valid:
     for error in result.errors:
         print(f"❌ {error}")
 ```
+
+#### Data Quality vs Type Consistency
+
+The validation distinguishes between **data quality metrics** (logged as info) and **type consistency errors**:
+
+**📊 Data Quality (Info Messages):**
+- Null/missing value percentages per column
+- Duplicate row percentages
+- These are informational and don't fail validation
+
+**❌ Type Consistency (Errors):**
+- Mixed types within a column (e.g., strings and integers mixed)
+- Schema mismatches (column type doesn't match field definition)
+- Missing units for numeric fields
+- These cause validation to fail
 
 #### Unit Requirements for Numeric Fields
 
@@ -180,8 +203,6 @@ if not result.is_valid:
 - **Counts/IDs**: Use dimensionless unit with QUDT path
 - **Percentages**: Use dimensionless or percent unit
 - **Indices**: Use dimensionless unit
-
-**Identifier fields** (like "id", "index", "key") with "identifier" in the description are automatically recognized and can use dimensionless units.
 
 Example units:
 ```python
@@ -248,6 +269,54 @@ print(result.get_summary())   # One-line summary
 # Pretty print
 print(result)  # Shows formatted output with all errors/warnings
 ```
+
+### Automatic Export of Data Inconsistencies to CSV
+
+When type inconsistencies are detected (e.g., mixed types in a column), each inconsistent value is automatically tracked and exported to a CSV file for detailed analysis:
+
+```python
+# Validate data with schema
+result = validator.validate_data_quality(df, schema=schema)
+
+# Type inconsistencies are automatically exported when printing the result
+print(result)  # Will export to data_inconsistencies.csv if inconsistencies found
+
+# Or manually export to a custom location
+if result.inconsistencies:
+    csv_path = result.export_inconsistencies_to_csv("my_custom_path.csv")
+    print(f"Exported {len(result.inconsistencies)} inconsistencies to {csv_path}")
+```
+
+**When are inconsistencies exported?**
+- Automatically when `print(result)` or `str(result)` is called and inconsistencies exist
+- Manually when calling `result.export_inconsistencies_to_csv()`
+- The error message will include a reference to the exported CSV file
+
+The exported CSV contains:
+- **row**: Row index of the inconsistent value
+- **column**: Column name
+- **value**: The inconsistent value
+- **actual_type**: Actual Python type of the value
+- **expected_type**: Expected type (most common type in the column)
+
+Example CSV output:
+```csv
+row,column,value,actual_type,expected_type
+1,name,123,int,str
+5,name,456,int,str
+12,temperature,not_a_number,str,float
+```
+
+**What triggers inconsistency tracking?**
+- Mixed types within a column (e.g., column has both strings and integers)
+- The most common type in the column is considered the "expected" type
+- All values with different types are logged as inconsistencies
+
+This is useful for:
+- Data cleaning workflows - identify exactly which values need fixing
+- Pattern analysis - find systematic data quality issues
+- Bulk corrections - use CSV to guide automated fixes
+- Documentation - track data quality problems for reporting
 
 ## Standard Specification
 

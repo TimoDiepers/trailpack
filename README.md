@@ -116,8 +116,8 @@ Trailpack includes a comprehensive validation system to ensure data quality and 
 
 ### Features
 - ✅ **Metadata validation**: Required fields, naming conventions, license checking
-- ✅ **Data quality checks**: Missing values, duplicates, type consistency
-- ✅ **Schema matching**: Validates data types match field definitions
+- ✅ **Data quality metrics**: Missing values and duplicates (logged as info, not errors)
+- ✅ **Type consistency**: Mixed types and schema matching (raises errors)
 - ✅ **Unit requirements**: All numeric fields must have units (including dimensionless)
 - ✅ **Compliance levels**: STRICT, STANDARD, BASIC, or NON-COMPLIANT
 

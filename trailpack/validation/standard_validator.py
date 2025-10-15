@@ -11,18 +11,44 @@ from typing import Any, Dict, List, Tuple, Optional
 from datetime import datetime
 import pandas as pd
 import yaml
+import csv
 
 from trailpack.validation import get_standard_path
 
 
 class ValidationResult:
-    """Result of a validation check."""
+    """
+    Result of a validation check.
+    
+    Contains three types of messages:
+    - errors: Type consistency violations that fail validation
+    - warnings: Recommended fields or practices that should be addressed
+    - info: Data quality metrics and informational messages
+    
+    A validation is considered valid (passed) if there are no errors,
+    regardless of warnings or info messages.
+    
+    **Data Inconsistency Tracking:**
+    When type inconsistencies are detected (e.g., mixed types in a column),
+    each inconsistent value is tracked in the `inconsistencies` list. This list
+    is automatically exported to 'data_inconsistencies.csv' when the result is
+    printed or converted to string. The CSV file contains the row, column, value,
+    actual type, and expected type for each inconsistency.
+    
+    Attributes:
+        errors: List of error messages (type consistency violations)
+        warnings: List of warning messages (recommended practices)
+        info: List of informational messages (data quality metrics)
+        level: Validation compliance level (if assigned)
+        inconsistencies: List of dicts with inconsistent value details
+    """
     
     def __init__(self):
         self.errors: List[str] = []
         self.warnings: List[str] = []
         self.info: List[str] = []
         self.level: Optional[str] = None
+        self.inconsistencies: List[Dict[str, Any]] = []  # Track type inconsistencies
         
     @property
     def is_valid(self) -> bool:
@@ -48,9 +74,78 @@ class ValidationResult:
         else:
             self.warnings.append(message)
     
-    def add_info(self, message: str):
+    def add_info(self, message: str, field: Optional[str] = None):
         """Add an info message."""
-        self.info.append(message)
+        if field:
+            self.info.append(f"[{field}] {message}")
+        else:
+            self.info.append(message)
+    
+    def add_inconsistency(self, row: int, column: str, value: Any, 
+                          actual_type: str, expected_type: str):
+        """
+        Track a data type inconsistency for later export.
+        
+        This method is called automatically during validation when mixed types
+        are detected in a column. Each inconsistent value (one that doesn't match
+        the most common type in the column) is recorded with its location and type
+        information.
+        
+        The inconsistencies are automatically exported to CSV when the ValidationResult
+        is printed or can be manually exported using export_inconsistencies_to_csv().
+        
+        Args:
+            row: Row index of the inconsistent value
+            column: Column name where the inconsistency was found
+            value: The actual inconsistent value
+            actual_type: Python type name of the value (e.g., 'int', 'str')
+            expected_type: Expected type based on most common type in column
+        """
+        self.inconsistencies.append({
+            'row': row,
+            'column': column,
+            'value': str(value),
+            'actual_type': actual_type,
+            'expected_type': expected_type
+        })
+    
+    def export_inconsistencies_to_csv(self, output_path: str = "data_inconsistencies.csv"):
+        """
+        Export data type inconsistencies to a CSV file for analysis.
+        
+        Creates a CSV file with details about each value that has an inconsistent
+        type compared to the expected type in its column. This is useful for data
+        cleaning workflows where you need to identify and fix specific problematic values.
+        
+        The CSV includes columns: row, column, value, actual_type, expected_type
+        
+        This method is called automatically when printing the ValidationResult if
+        inconsistencies exist, but can also be called manually to export to a
+        custom location.
+        
+        Args:
+            output_path: Path to the output CSV file. Defaults to "data_inconsistencies.csv"
+                        in the current working directory.
+            
+        Returns:
+            Path to the created CSV file (str), or None if no inconsistencies to export.
+            
+        Example:
+            >>> result = validator.validate_data_quality(df, schema)
+            >>> if result.inconsistencies:
+            ...     csv_path = result.export_inconsistencies_to_csv("issues.csv")
+            ...     print(f"Found {len(result.inconsistencies)} issues in {csv_path}")
+        """
+        if not self.inconsistencies:
+            return None
+        
+        with open(output_path, 'w', newline='', encoding='utf-8') as f:
+            fieldnames = ['row', 'column', 'value', 'actual_type', 'expected_type']
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(self.inconsistencies)
+        
+        return output_path
     
     def get_summary(self) -> str:
         """Get a summary of the validation result."""
@@ -80,6 +175,15 @@ class ValidationResult:
             for info in self.info:
                 lines.append(f"  • {info}")
         
+        if self.inconsistencies:
+            lines.append(f"\n📋 DATA INCONSISTENCIES ({len(self.inconsistencies)} values):")
+            # Auto-export inconsistencies
+            csv_path = self.export_inconsistencies_to_csv()
+            if csv_path:
+                lines.append(f"  → Exported to: {csv_path}")
+            else:
+                lines.append("  Use result.export_inconsistencies_to_csv() to export details")
+        
         if not self.errors and not self.warnings:
             lines.append("\n✅ All checks passed!")
         
@@ -102,6 +206,12 @@ class StandardValidator:
     - Counts/IDs: Use dimensionless unit (http://qudt.org/vocab/unit/NUM)
     - Percentages: Use percent or dimensionless unit
     
+    **Automatic Inconsistency Export:**
+    When type inconsistencies are detected during validation (e.g., mixed types in
+    a column), each inconsistent value is tracked and automatically exported to
+    'data_inconsistencies.csv' when the ValidationResult is printed. This provides
+    a detailed breakdown for data cleaning workflows.
+    
     Example:
         >>> validator = StandardValidator("1.0.0")
         >>> result = validator.validate_metadata(metadata)
@@ -110,8 +220,9 @@ class StandardValidator:
         ... else:
         ...     print(result)
         
-        >>> # Validate with schema
+        >>> # Validate with schema (auto-exports inconsistencies.csv if errors found)
         >>> result = validator.validate_data_quality(df, schema=schema)
+        >>> print(result)  # Shows errors and exports CSV automatically
     """
     
     def __init__(self, version: str = "1.0.0"):
@@ -359,12 +470,21 @@ class StandardValidator:
         """
         Validate data quality of a DataFrame.
         
-        Checks:
-        - Missing data: Max percentage of nulls per column
-        - Duplicates: Max percentage of duplicate rows
-        - Type consistency: All values in a column have the same type
-        - Schema matching: If schema provided, validates column types match field definitions
+        Data quality checks are logged as informational messages, not errors:
+        - Missing data: Percentage of nulls per column
+        - Duplicates: Percentage of duplicate rows
+        
+        Type consistency checks RAISE ERRORS (not just logged):
+        - Mixed types: Columns with multiple Python types (e.g., strings and integers mixed)
+        - Schema matching: Column types must match field definitions
         - Unit requirements: Numeric fields must have units (including dimensionless for IDs/counts)
+        
+        **Automatic Inconsistency Export:**
+        When type inconsistencies are detected (mixed types in columns), each inconsistent
+        value is tracked with its row number, column, actual type, and expected type. These
+        inconsistencies are automatically exported to 'data_inconsistencies.csv' when the
+        ValidationResult is printed. You can also manually export to a custom location using
+        `result.export_inconsistencies_to_csv("custom_path.csv")`.
         
         Args:
             df: DataFrame to validate
@@ -376,7 +496,11 @@ class StandardValidator:
                    - description: Field description
         
         Returns:
-            ValidationResult with data quality errors and warnings
+            ValidationResult with:
+            - errors: Type consistency violations (mixed types, schema mismatches)
+            - info: Data quality metrics (nulls, duplicates)
+            - inconsistencies: List of dicts with details about each inconsistent value
+              (automatically exported to CSV when result is printed)
             
         Example:
             >>> schema = {
@@ -396,6 +520,8 @@ class StandardValidator:
             ...     ]
             ... }
             >>> result = validator.validate_data_quality(df, schema=schema)
+            >>> # result.errors will contain type/schema mismatches and mixed type violations
+            >>> # result.info will contain data quality observations (nulls, duplicates)
         
         Note:
             Identifier fields (with "id", "index", "identifier" in name or description)
@@ -407,7 +533,7 @@ class StandardValidator:
         
         quality_spec = self.standard["data_quality"]
         
-        # 1. Check missing data thresholds
+        # 1. Check missing data thresholds (log as info, not errors)
         max_null_pct = quality_spec["missing_data"]["max_null_percentage"]
         critical_threshold = quality_spec["missing_data"]["critical_threshold"]
         
@@ -415,18 +541,25 @@ class StandardValidator:
             null_count = df[col].isnull().sum()
             null_pct = null_count / len(df) if len(df) > 0 else 0
             
-            if null_pct > max_null_pct:
-                result.add_error(
-                    f"Column '{col}' has {null_pct:.1%} missing values (max: {max_null_pct:.1%})",
-                    "data_quality"
-                )
-            elif null_pct > critical_threshold:
-                result.add_warning(
-                    f"Column '{col}' has {null_pct:.1%} missing values (approaching threshold)",
-                    "data_quality"
-                )
+            if null_pct > 0:
+                if null_pct > max_null_pct:
+                    result.add_info(
+                        f"Column '{col}' has {null_pct:.1%} missing values (exceeds recommended max: {max_null_pct:.1%})",
+                        "data_quality"
+                    )
+                elif null_pct > critical_threshold:
+                    result.add_info(
+                        f"Column '{col}' has {null_pct:.1%} missing values (approaching threshold: {critical_threshold:.1%})",
+                        "data_quality"
+                    )
+                else:
+                    result.add_info(
+                        f"Column '{col}' has {null_pct:.1%} missing values",
+                        "data_quality"
+                    )
         
         # 2. Check type consistency (basic - mixed types in object columns)
+        # This is a type consistency issue - raise errors
         if not quality_spec["type_consistency"]["allow_mixed_types"]:
             for col in df.columns:
                 if df[col].dtype == 'object':
@@ -436,9 +569,33 @@ class StandardValidator:
                         types = non_null.apply(type).unique()
                         if len(types) > 1:
                             type_names = [t.__name__ for t in types]
+                            
+                            # Track each inconsistent value
+                            # Determine the most common type as "expected"
+                            type_list = [type(v) for v in non_null]
+                            type_counts_dict: Dict[type, int] = {}
+                            for t in type_list:
+                                type_counts_dict[t] = type_counts_dict.get(t, 0) + 1
+                            most_common_type = max(type_counts_dict, key=lambda k: type_counts_dict[k])
+                            expected_type = most_common_type.__name__
+                            
+                            inconsistent_count = 0
+                            for idx, value in non_null.items():
+                                actual_type = type(value).__name__
+                                if actual_type != expected_type:
+                                    result.add_inconsistency(
+                                        row=int(idx) if isinstance(idx, (int, float)) else 0,
+                                        column=col,
+                                        value=value,
+                                        actual_type=actual_type,
+                                        expected_type=expected_type
+                                    )
+                                    inconsistent_count += 1
+                            
                             result.add_error(
-                                f"Column '{col}' has mixed types: {', '.join(type_names)}",
-                                "data_quality"
+                                f"Column '{col}' has mixed types: {', '.join(type_names)} "
+                                f"({inconsistent_count} inconsistent values tracked)",
+                                "type_consistency"
                             )
         
         # 3. Check schema-based type consistency (if schema provided)
@@ -447,7 +604,7 @@ class StandardValidator:
             result.errors.extend(schema_result.errors)
             result.warnings.extend(schema_result.warnings)
         
-        # 4. Check duplicates
+        # 4. Check duplicates (log as info)
         if quality_spec["duplicates"]["check_duplicates"]:
             dup_count = df.duplicated().sum()
             if dup_count > 0:
@@ -455,18 +612,26 @@ class StandardValidator:
                 max_dup_pct = quality_spec["duplicates"]["max_duplicate_percentage"]
                 
                 if dup_pct > max_dup_pct:
-                    result.add_error(
-                        f"{dup_count} duplicate rows ({dup_pct:.1%}) exceeds threshold ({max_dup_pct:.1%})",
+                    result.add_info(
+                        f"{dup_count} duplicate rows ({dup_pct:.1%}) exceeds recommended threshold ({max_dup_pct:.1%})",
                         "data_quality"
                     )
                 else:
-                    result.add_warning(
+                    result.add_info(
                         f"{dup_count} duplicate rows found ({dup_pct:.1%})",
                         "data_quality"
                     )
         
         # 5. Add info about dataset
         result.add_info(f"Dataset has {len(df)} rows and {len(df.columns)} columns")
+        
+        # 6. Add note about inconsistencies CSV export if any were found
+        if result.inconsistencies:
+            result.add_info(
+                f"Found {len(result.inconsistencies)} type inconsistencies. "
+                "CSV export will be created automatically when result is printed, "
+                "or call result.export_inconsistencies_to_csv() manually"
+            )
         
         return result
     

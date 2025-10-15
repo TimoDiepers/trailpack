@@ -366,3 +366,44 @@ def test_validate_all_with_invalid_data(validator, sample_schema):
     # Should have errors about type mismatch
     errors_str = " ".join([str(e) for e in result.errors])
     assert "mass" in errors_str
+
+
+def test_inconsistencies_export_to_csv(validator, sample_schema, tmp_path):
+    """Test that type inconsistencies can be exported to CSV."""
+    import os
+    
+    # Create DataFrame with mixed types in 'name' column
+    df = pd.DataFrame({
+        "id": [1, 2, 3, 4, 5],
+        "name": ["A", 123, "C", 456, "E"],  # Mixed string and int
+        "mass": [10.5, 20.3, 15.7, 18.2, 22.1],
+        "temperature": [25.0, 30.0, 28.5, 27.0, 29.5],
+        "is_active": [True, False, True, False, True],
+        "count": [5, 10, 8, 12, 7]
+    })
+    
+    result = validator.validate_data_quality(df, schema=sample_schema)
+    
+    # Should have tracked inconsistencies
+    assert len(result.inconsistencies) > 0
+    
+    # Export to CSV
+    csv_path = tmp_path / "test_inconsistencies.csv"
+    exported_path = result.export_inconsistencies_to_csv(str(csv_path))
+    
+    assert exported_path is not None
+    assert os.path.exists(exported_path)
+    
+    # Read and verify CSV content
+    import csv
+    with open(exported_path, 'r', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        rows = list(reader)
+    
+    # Should have 2 inconsistent values (123 and 456 in 'name' column)
+    assert len(rows) == 2
+    assert all(row['column'] == 'name' for row in rows)
+    assert any(row['value'] == '123' for row in rows)
+    assert any(row['value'] == '456' for row in rows)
+    assert all(row['actual_type'] == 'int' for row in rows)
+    assert all(row['expected_type'] == 'str' for row in rows)
