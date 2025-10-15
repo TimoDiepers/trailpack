@@ -186,7 +186,7 @@ class DataPackageExporter:
 
         return builder.build()
 
-    def export(self, output_path: str, validate_standard: bool = True) -> Tuple[str, Optional[str]]:
+    def export(self, output_path: str, validate_standard: bool = True) -> Tuple[str, Optional[str], Optional[Any]]:
         """
         Execute full export workflow and write Parquet.
 
@@ -195,9 +195,10 @@ class DataPackageExporter:
             validate_standard: Whether to validate against Trailpack standard (default: True)
 
         Returns:
-            Tuple of (output_path, quality_level)
+            Tuple of (output_path, quality_level, validation_result)
             - output_path: Path to exported Parquet file
             - quality_level: Validation level ("STRICT", "STANDARD", "BASIC", "INVALID") or None if validation skipped
+            - validation_result: Full ValidationResult object for report generation, or None if validation skipped
 
         Raises:
             ValueError: If validation fails or data quality issues found
@@ -221,6 +222,7 @@ class DataPackageExporter:
 
         # Validate against Trailpack standard (if enabled)
         quality_level = None
+        validation_result = None
         if validate_standard:
             validation_result = self.validator.validate_all(
                 metadata=metadata,
@@ -239,7 +241,7 @@ class DataPackageExporter:
         packer = Packing(data=self.df, meta_data=metadata)
         packer.write_parquet(output_path)
 
-        return output_path, quality_level
+        return output_path, quality_level, validation_result
 
     def _validate_dataframe_for_parquet(self, df: pd.DataFrame) -> None:
         """Validate DataFrame is compatible with Arrow/Parquet format.
@@ -335,6 +337,91 @@ class DataPackageExporter:
 
         lines.append("\n" + "=" * 80)
         lines.append("Please fix the errors above and try again.")
+        lines.append("=" * 80)
+
+        return "\n".join(lines)
+
+    def generate_validation_report(self, validation_result) -> str:
+        """
+        Generate a complete validation report for download.
+
+        Includes errors, warnings, and info (data quality metrics).
+
+        Args:
+            validation_result: ValidationResult object from validation
+
+        Returns:
+            Formatted report as string
+        """
+        from datetime import datetime
+
+        lines = []
+        lines.append("=" * 80)
+        lines.append("TRAILPACK VALIDATION REPORT")
+        lines.append("=" * 80)
+        lines.append(f"\nGenerated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        lines.append(f"Dataset: {self.file_name} - {self.sheet_name}")
+        lines.append(f"Package Name: {self.general_details.get('name', 'N/A')}")
+
+        if validation_result.level:
+            lines.append(f"\nValidation Level: {validation_result.level}")
+
+        lines.append(f"\nValidation Status: {'PASSED' if validation_result.is_valid else 'FAILED'}")
+
+        # Summary
+        lines.append("\n" + "=" * 80)
+        lines.append("SUMMARY")
+        lines.append("=" * 80)
+        lines.append(f"Errors: {len(validation_result.errors)}")
+        lines.append(f"Warnings: {len(validation_result.warnings)}")
+        lines.append(f"Info Messages: {len(validation_result.info)}")
+
+        # Errors
+        if validation_result.errors:
+            lines.append("\n" + "=" * 80)
+            lines.append("ERRORS")
+            lines.append("=" * 80)
+            for i, error in enumerate(validation_result.errors, 1):
+                lines.append(f"{i}. {error}")
+
+        # Warnings
+        if validation_result.warnings:
+            lines.append("\n" + "=" * 80)
+            lines.append("WARNINGS")
+            lines.append("=" * 80)
+            for i, warning in enumerate(validation_result.warnings, 1):
+                lines.append(f"{i}. {warning}")
+
+        # Info (data quality metrics)
+        if validation_result.info:
+            lines.append("\n" + "=" * 80)
+            lines.append("DATA QUALITY METRICS")
+            lines.append("=" * 80)
+            for i, info in enumerate(validation_result.info, 1):
+                lines.append(f"{i}. {info}")
+
+        # Dataset information
+        lines.append("\n" + "=" * 80)
+        lines.append("DATASET INFORMATION")
+        lines.append("=" * 80)
+        lines.append(f"Rows: {len(self.df)}")
+        lines.append(f"Columns: {len(self.df.columns)}")
+        lines.append(f"Columns mapped: {len(self.column_mappings)}")
+
+        # Column mappings summary
+        lines.append("\n" + "=" * 80)
+        lines.append("COLUMN MAPPINGS")
+        lines.append("=" * 80)
+        for col in self.df.columns:
+            mapping = self.column_mappings.get(col, "Not mapped")
+            unit = self.column_mappings.get(f"{col}_unit", "")
+            if unit:
+                lines.append(f"- {col}: {mapping} (unit: {unit})")
+            else:
+                lines.append(f"- {col}: {mapping}")
+
+        lines.append("\n" + "=" * 80)
+        lines.append("END OF REPORT")
         lines.append("=" * 80)
 
         return "\n".join(lines)

@@ -783,13 +783,13 @@ Simplified Architecture: Local-First Data Quality Tool
 
 ### Completed Components
 - [x] Streamlit UI (4-page workflow: upload → sheet selection → column mapping → metadata)
-- [x] PyST API integration (ontology and unit suggestions)
+- [x] PyST API integration (ontology and unit suggestions, event loop handling for Streamlit)
 - [x] Excel/CSV reading (via pandas, ready for SmartDataReader upgrade)
-- [x] DataPackageExporter (builds Frictionless metadata)
+- [x] DataPackageExporter (builds Frictionless metadata, returns validation results)
 - [x] Packing service (writes Parquet with embedded metadata)
 - [x] StandardValidator (692 lines, full validation suite)
 - [x] Data quality validation (mixed types, nulls, duplicates)
-- [x] Config download for validation results
+- [x] Validation report generation and download (detailed text report with all metrics)
 
 ### In Progress
 - [~] SmartDataReader (engine selection logic implemented, read methods pending)
