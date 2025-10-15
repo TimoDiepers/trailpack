@@ -72,9 +72,9 @@ columns = reader.columns("Sheet1")
 client = get_suggest_client()
 suggestions = await client.suggest("carbon footprint", "en")
 ```
-## ✨ New: UI-Ready DataPackage Schema Classes
+## UI-Ready DataPackage Schema Classes
 
-This project now includes comprehensive schema classes for building data package metadata through user interfaces:
+This project now includes comprehensive schema classes for building [data package](https://datapackage.org/standard/data-package/) metadata through user interfaces:
 
 ### Key Features
 - **`DataPackageSchema`**: Defines field types, validation rules, and UI configuration
