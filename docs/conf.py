@@ -66,8 +66,8 @@ html_theme_options = {
     'titles_only': False
 }
 
-html_logo = 'https://raw.githubusercontent.com/brightway-lca/brightway-documentation/main/source/_static/logo/BW_all_white_transparent_landscape_wide.svg'
-html_favicon = 'https://github.com/brightway-lca/brightway-documentation/blob/main/source/_static/logo/BW_favicon_500x500.png'
+html_logo = '../trailpack/ui/icon.svg'
+html_favicon = '../trailpack/ui/icon.svg'
 
 ### extension configuration ########################################################################
 
