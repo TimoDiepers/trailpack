@@ -1,0 +1,4 @@
+row,column,value,actual_type,expected_type
+1,name,123,int,str
+4,name,456,int,str
+2,value,not_a_number,str,float

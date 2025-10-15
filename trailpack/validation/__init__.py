@@ -6,28 +6,47 @@ quality and compliance before submission to repositories.
 
 The validation system checks:
 - Metadata completeness: All required fields present (name, title, resources, etc.)
-- Data quality: Missing values, duplicates, type consistency
+- Data quality metrics: Missing values and duplicates (logged as info)
+- Type consistency: Mixed types and schema matching (raises errors)
 - Field definitions: Proper types, units for numeric fields
-- Schema matching: Column types match their field definitions
 
 Key Components:
 - StandardValidator: Main validation class for all checks
-- ValidationResult: Result object with errors, warnings, and compliance level
+- ValidationResult: Result object with errors, warnings, info, and compliance level
 - Standards YAML: Versioned validation rules in standards/v*.yaml
+
+Data Quality vs Type Consistency:
+- Data quality metrics (nulls, duplicates) are logged as INFO messages
+- Type consistency issues (mixed types, schema mismatches) raise ERRORS
+- Only errors cause validation to fail
 
 Unit Requirements:
 All numeric fields (type "number" or "integer") must have units specified,
 even for dimensionless quantities like IDs and counts. Use the QUDT vocabulary
 for unit definitions (http://qudt.org/vocab/unit/).
 
+Inconsistency Tracking and Export:
+When type inconsistencies are detected (e.g., mixed types in a column), each
+inconsistent value is automatically tracked and exported to 'data_inconsistencies.csv'
+when the ValidationResult is printed. This CSV file contains:
+- row: Row index of the inconsistent value
+- column: Column name
+- value: The actual value
+- actual_type: Python type of the value
+- expected_type: Most common type in the column
+
+This export happens automatically for easy data cleaning workflows.
+
 Example:
     >>> from trailpack.validation import StandardValidator
     >>> validator = StandardValidator("1.0.0")
-    >>> result = validator.validate_all(metadata, df)
+    >>> result = validator.validate_data_quality(df, schema)
+    >>> print(result)  # Automatically exports inconsistencies.csv if issues found
     >>> if result.is_valid:
     ...     print(f"{result.level}")
     ... else:
-    ...     print(result)
+    ...     for error in result.errors:
+    ...         print(f"Error: {error}")
 """
 
 from pathlib import Path
