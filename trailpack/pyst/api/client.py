@@ -155,6 +155,44 @@ class PystSuggestClient:
         # Return JSON response
         return response.json()
 
+    async def get_concept(self, iri: str) -> dict[str, Any]:
+        """
+        Get concept details from PyST API by IRI.
+
+        Args:
+            iri: The concept IRI (e.g., "http://data.europa.eu/xsp/cn2024/010021000090")
+
+        Returns:
+            Concept details including SKOS definition
+
+        Raises:
+            ApiException: If the API request fails
+            ValueError: If IRI is invalid
+
+        Example:
+            >>> client = PystSuggestClient.get_instance()
+            >>> concept = await client.get_concept("http://example.com/concept")
+            >>> print(concept.get("http://www.w3.org/2004/02/skos/core#definition"))
+        """
+        # Ensure client is valid for current event loop
+        self._ensure_client_valid()
+
+        # Validate IRI is not empty
+        if not iri or not iri.strip():
+            raise ValueError("IRI cannot be empty")
+
+        # Make API request using httpx AsyncClient
+        # The endpoint format is /api/v1/concepts/{iri}
+        response = await self._api_client.get(
+            f"/concepts/{iri}"
+        )
+
+        # Raise for HTTP errors
+        response.raise_for_status()
+
+        # Return JSON response
+        return response.json()
+
     async def close(self):
         """Close the API client connection."""
         if self._api_client is not None:

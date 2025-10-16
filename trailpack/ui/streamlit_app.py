@@ -154,6 +154,8 @@ if "column_mappings" not in st.session_state:
     st.session_state.column_mappings = {}
 if "column_descriptions" not in st.session_state:
     st.session_state.column_descriptions = {}
+if "concept_definitions" not in st.session_state:
+    st.session_state.concept_definitions = {}
 if "suggestions_cache" not in st.session_state:
     st.session_state.suggestions_cache = {}
 if "view_object" not in st.session_state:
@@ -281,6 +283,63 @@ def fetch_suggestions_sync(column_name: str, language: str) -> List[Dict[str, st
     except Exception as e:
         st.warning(f"Could not fetch suggestions for '{column_name}': {e}")
         return []
+
+
+async def fetch_concept_async(iri: str, language: str) -> Optional[str]:
+    """Fetch concept definition from PyST API."""
+    try:
+        client = get_suggest_client()
+        concept = await client.get_concept(iri)
+        
+        # Extract SKOS definition
+        # The response format is: "http://www.w3.org/2004/02/skos/core#definition": [{"@language": "en", "@value": "..."}]
+        definitions = concept.get("http://www.w3.org/2004/02/skos/core#definition", [])
+        
+        if not definitions:
+            return None
+        
+        # Try to find definition in the requested language
+        for definition in definitions:
+            if isinstance(definition, dict) and definition.get("@language") == language:
+                return definition.get("@value")
+        
+        # Fallback: return first available definition
+        if definitions and isinstance(definitions[0], dict):
+            return definitions[0].get("@value")
+        
+        return None
+    except Exception as e:
+        import sys
+        print(f"DEBUG - Error fetching concept {iri}: {e}", file=sys.stderr)
+        return None
+
+
+def fetch_concept_sync(iri: str, language: str) -> Optional[str]:
+    """
+    Synchronous wrapper for fetching concept definition.
+
+    Handles event loop management for Streamlit compatibility.
+    """
+    try:
+        # Try to get the current event loop
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                # Loop is closed, create a new one
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+        except RuntimeError:
+            # No event loop exists, create a new one
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        # Run the async function
+        return loop.run_until_complete(fetch_concept_async(iri, language))
+
+    except Exception as e:
+        import sys
+        print(f"DEBUG - Error in fetch_concept_sync for {iri}: {e}", file=sys.stderr)
+        return None
 
 
 def generate_view_object() -> Dict[str, Any]:
@@ -697,13 +756,33 @@ elif st.session_state.page == 3:
                                 selected_label = options[selected_idx]
                                 st.session_state.column_mappings[column] = selected_id
 
+                                # Fetch concept definition from API if not already cached
+                                concept_cache_key = f"concept_{selected_id}"
+                                if concept_cache_key not in st.session_state.concept_definitions:
+                                    concept_definition = fetch_concept_sync(
+                                        selected_id, st.session_state.language
+                                    )
+                                    if concept_definition:
+                                        st.session_state.concept_definitions[concept_cache_key] = concept_definition
+
                                 # Display selected concept with clickable link to web page
                                 web_url = iri_to_web_url(
                                     selected_id, st.session_state.language
                                 )
-                                st.info(
-                                    f"**Selected:** {selected_label}\n\n[🔗 View on vocab.sentier.dev]({web_url})"
-                                )
+                                
+                                # Get the definition to display
+                                concept_definition = st.session_state.concept_definitions.get(concept_cache_key)
+                                
+                                if concept_definition:
+                                    st.info(
+                                        f"**Selected:** {selected_label}\n\n"
+                                        f"**Description:** {concept_definition}\n\n"
+                                        f"[🔗 View on vocab.sentier.dev]({web_url})"
+                                    )
+                                else:
+                                    st.info(
+                                        f"**Selected:** {selected_label}\n\n[🔗 View on vocab.sentier.dev]({web_url})"
+                                    )
 
                     # If numeric, show unit search field below ontology
                     if is_numeric:
@@ -794,37 +873,64 @@ elif st.session_state.page == 3:
                                         f"{column}_unit"
                                     ] = selected_unit_id
 
+                                    # Fetch concept definition for unit from API if not already cached
+                                    unit_concept_cache_key = f"concept_{selected_unit_id}"
+                                    if unit_concept_cache_key not in st.session_state.concept_definitions:
+                                        unit_concept_definition = fetch_concept_sync(
+                                            selected_unit_id, st.session_state.language
+                                        )
+                                        if unit_concept_definition:
+                                            st.session_state.concept_definitions[unit_concept_cache_key] = unit_concept_definition
+
                                     # Display selected unit with clickable link to web page
                                     web_url = iri_to_web_url(
                                         selected_unit_id, st.session_state.language
                                     )
-                                    st.info(
-                                        f"**Selected unit:** {selected_unit_label}\n\n[🔗 View on vocab.sentier.dev]({web_url})"
-                                    )
+                                    
+                                    # Get the definition to display
+                                    unit_concept_definition = st.session_state.concept_definitions.get(unit_concept_cache_key)
+                                    
+                                    if unit_concept_definition:
+                                        st.info(
+                                            f"**Selected unit:** {selected_unit_label}\n\n"
+                                            f"**Description:** {unit_concept_definition}\n\n"
+                                            f"[🔗 View on vocab.sentier.dev]({web_url})"
+                                        )
+                                    else:
+                                        st.info(
+                                            f"**Selected unit:** {selected_unit_label}\n\n[🔗 View on vocab.sentier.dev]({web_url})"
+                                        )
                     
-                    # Description field - mandatory if no ontology mapping exists
+                    # Description field - only show if no ontology or no API definition available
                     has_ontology = st.session_state.column_mappings.get(column) is not None
-                    description_label = "Column Description" if has_ontology else "Column Description *"
-                    description_help = "Provide a description for this column" if has_ontology else "Required: No ontology mapping selected. Please provide a description for this column."
                     
-                    column_description = st.text_area(
-                        description_label,
-                        value=st.session_state.column_descriptions.get(column, ""),
-                        placeholder="Describe what this column represents...",
-                        help=description_help,
-                        key=f"description_{column}",
-                        height=80
-                    )
+                    # Check if we have a concept definition from the API
+                    concept_cache_key = f"concept_{st.session_state.column_mappings.get(column)}" if has_ontology else None
+                    concept_definition = st.session_state.concept_definitions.get(concept_cache_key) if concept_cache_key else None
                     
-                    # Store description in session state
-                    if column_description:
-                        st.session_state.column_descriptions[column] = column_description
-                    else:
-                        st.session_state.column_descriptions.pop(column, None)
-                    
-                    # Show warning if no ontology and no description
-                    if not has_ontology and not column_description:
-                        st.warning("Please provide either an ontology mapping or a description for this column.")
+                    # Only show text area when no ontology or no definition available
+                    if not (has_ontology and concept_definition):
+                        description_label = "Column Description" if has_ontology else "Column Description *"
+                        description_help = "Provide a description for this column" if has_ontology else "Required: No ontology mapping selected. Please provide a description for this column."
+                        
+                        column_description = st.text_area(
+                            description_label,
+                            value=st.session_state.column_descriptions.get(column, ""),
+                            placeholder="Describe what this column represents...",
+                            help=description_help,
+                            key=f"description_{column}",
+                            height=80
+                        )
+                        
+                        # Store description in session state
+                        if column_description:
+                            st.session_state.column_descriptions[column] = column_description
+                        else:
+                            st.session_state.column_descriptions.pop(column, None)
+                        
+                        # Show warning if no ontology and no description
+                        if not has_ontology and not column_description:
+                            st.warning("Please provide either an ontology mapping or a description for this column.")
 
                 st.markdown("---")
 
@@ -845,7 +951,16 @@ elif st.session_state.page == 3:
             for column in columns:
                 has_ontology = st.session_state.column_mappings.get(column) is not None
                 has_description = bool(st.session_state.column_descriptions.get(column))
+                
+                # Check if we have a concept definition from the API
+                concept_cache_key = f"concept_{st.session_state.column_mappings.get(column)}" if has_ontology else None
+                has_concept_definition = bool(st.session_state.concept_definitions.get(concept_cache_key)) if concept_cache_key else False
+                
+                # Column is valid if it has: ontology with API definition OR manual description
                 if not has_ontology and not has_description:
+                    missing_info.append(column)
+                elif has_ontology and not has_concept_definition and not has_description:
+                    # Has ontology but no API definition and no manual description
                     missing_info.append(column)
             
             can_proceed = len(missing_info) == 0
