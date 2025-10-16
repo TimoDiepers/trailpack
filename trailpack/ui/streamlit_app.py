@@ -800,10 +800,9 @@ elif st.session_state.page == 3:
                                         st.session_state.column_mappings.pop(column, None)
                                         # Clear concept definition cache
                                         st.session_state.concept_definitions.pop(concept_cache_key, None)
-                                        # Clear search field text by deleting the widget state
+                                        # Clear search field text by resetting the widget state to empty string
                                         search_key = f"search_{column}"
-                                        if search_key in st.session_state:
-                                            del st.session_state[search_key]
+                                        st.session_state[search_key] = ""
                                         # Clear all suggestions cache entries for this column
                                         cache_keys_to_remove = [k for k in st.session_state.suggestions_cache.keys() if k.startswith(f"{column}_")]
                                         for cache_key in cache_keys_to_remove:
@@ -934,10 +933,9 @@ elif st.session_state.page == 3:
                                             st.session_state.column_mappings.pop(f"{column}_unit", None)
                                             # Clear concept definition cache
                                             st.session_state.concept_definitions.pop(unit_concept_cache_key, None)
-                                            # Clear unit search field text by deleting the widget state
+                                            # Clear unit search field text by resetting the widget state to empty string
                                             unit_search_key = f"search_unit_{column}"
-                                            if unit_search_key in st.session_state:
-                                                del st.session_state[unit_search_key]
+                                            st.session_state[unit_search_key] = ""
                                             # Clear all unit suggestions cache entries for this column
                                             unit_cache_keys_to_remove = [k for k in st.session_state.suggestions_cache.keys() if k.startswith(f"{column}_unit_")]
                                             for cache_key in unit_cache_keys_to_remove:
