@@ -826,7 +826,7 @@ elif st.session_state.page == 4:
     # Package Name (required)
     name_field = field_defs.get("name", {})
     package_name = st.text_input(
-        name_field.get("label", "Package Name"),
+        name_field.get("label", "Package Name") + " *",
         value=st.session_state.general_details.get("name", ""),
         placeholder=name_field.get("placeholder", ""),
         help=name_field.get("help", name_field.get("description", "")),
