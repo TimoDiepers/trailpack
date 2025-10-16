@@ -256,9 +256,9 @@ class Resource(BaseModel):
         for key, value in optional_fields.items():
             if value:
                 result[key] = value
-                
-        if self.encoding != "utf-8":
-            result["encoding"] = self.encoding
+        
+        # Always include encoding (recommended field in standard)
+        result["encoding"] = self.encoding
 
         if self.fields:
             schema: Dict[str, Any] = {"fields": [field.to_dict() for field in self.fields]}
