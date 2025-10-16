@@ -901,19 +901,15 @@ elif st.session_state.page == 3:
                                             f"**Selected unit:** {selected_unit_label}\n\n[🔗 View on vocab.sentier.dev]({web_url})"
                                         )
                     
-                    # Description field - show ontology description from API if available
+                    # Description field - only show if no ontology or no API definition available
                     has_ontology = st.session_state.column_mappings.get(column) is not None
                     
                     # Check if we have a concept definition from the API
                     concept_cache_key = f"concept_{st.session_state.column_mappings.get(column)}" if has_ontology else None
                     concept_definition = st.session_state.concept_definitions.get(concept_cache_key) if concept_cache_key else None
                     
-                    if has_ontology and concept_definition:
-                        # Show the description from the API as read-only info
-                        st.markdown("**Column Description** *(from ontology)*")
-                        st.info(concept_definition)
-                    else:
-                        # Show editable text area when no ontology or no definition available
+                    # Only show text area when no ontology or no definition available
+                    if not (has_ontology and concept_definition):
                         description_label = "Column Description" if has_ontology else "Column Description *"
                         description_help = "Provide a description for this column" if has_ontology else "Required: No ontology mapping selected. Please provide a description for this column."
                         
