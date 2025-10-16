@@ -456,9 +456,18 @@ with st.sidebar:
         st.markdown("3. Map Columns")
 
     if st.session_state.page >= 4:
-        st.markdown("> **4. General Details**")
+        st.markdown(
+            "**4. General Details**"
+            if st.session_state.page > 4
+            else "> **4. General Details**"
+        )
     else:
         st.markdown("4. General Details")
+
+    if st.session_state.page >= 5:
+        st.markdown("> **5. Review Parquet File**")
+    else:
+        st.markdown("5. Review Parquet File")
 
     st.markdown("---")
 
@@ -1583,11 +1592,11 @@ The resource name identifies your data file in the package. It must follow speci
             all_valid = all_valid and is_valid
 
         if has_required_fields and all_valid:
-            if st.button("Finish", type="primary", use_container_width=True):
-                st.session_state.export_ready = True
+            if st.button("Next ", type="primary", use_container_width=True):
+                navigate_to(5)
         else:
             st.button(
-                "Finish", type="primary", disabled=True, use_container_width=True
+                "Next ", type="primary", disabled=True, use_container_width=True
             )
             if not has_required_fields:
                 st.warning(
@@ -1596,165 +1605,175 @@ The resource name identifies your data file in the package. It must follow speci
             elif not all_valid:
                 st.warning("Please fix validation errors in the form")
 
-    # Export section - appears below the form after "Finish" is clicked
-    if st.session_state.get("export_ready", False):
-        st.markdown("---")
-        st.success("All information collected successfully!")
 
-        st.markdown("### Export Data Package")
-        export_name = st.text_input(
-            "Export file name",
-            value=f"{st.session_state.general_details['name']}.parquet",
-            help="Name for the exported Parquet file",
-            key="export_filename",
-        )
+# Page 5: Review Parquet File
+elif st.session_state.page == 5:
+    st.title("Step 5: Review Parquet File")
+    st.markdown("Generate and review your data package.")
 
-        if st.button(
-            "📦 Generate Parquet File", type="primary", use_container_width=True
-        ):
-            with st.spinner("Building data package..."):
-                try:
-                    from trailpack.packing.export_service import DataPackageExporter
-                    from trailpack.packing.packing import read_parquet
+    # Export section
+    st.markdown("### Export Data Package")
+    export_name = st.text_input(
+        "Export file name",
+        value=f"{st.session_state.general_details['name']}.parquet",
+        help="Name for the exported Parquet file",
+        key="export_filename",
+    )
 
-                    exporter = DataPackageExporter(
-                        df=st.session_state.df,
-                        column_mappings=st.session_state.column_mappings,
-                        general_details=st.session_state.general_details,
-                        sheet_name=st.session_state.selected_sheet,
-                        file_name=st.session_state.file_name,
-                        suggestions_cache=st.session_state.suggestions_cache,
+    if st.button(
+        "📦 Generate Parquet File", type="primary", use_container_width=True
+    ):
+        with st.spinner("Building data package..."):
+            try:
+                from trailpack.packing.export_service import DataPackageExporter
+                from trailpack.packing.packing import read_parquet
+
+                exporter = DataPackageExporter(
+                    df=st.session_state.df,
+                    column_mappings=st.session_state.column_mappings,
+                    general_details=st.session_state.general_details,
+                    sheet_name=st.session_state.selected_sheet,
+                    file_name=st.session_state.file_name,
+                    suggestions_cache=st.session_state.suggestions_cache,
+                )
+
+                with tempfile.NamedTemporaryFile(
+                    delete=False, suffix=".parquet"
+                ) as tmp:
+                    output_path, quality_level, validation_result = exporter.export(
+                        tmp.name
                     )
 
-                    with tempfile.NamedTemporaryFile(
-                        delete=False, suffix=".parquet"
-                    ) as tmp:
-                        output_path, quality_level, validation_result = exporter.export(
-                            tmp.name
-                        )
+                    # Store in session state for display
+                    st.session_state.output_path = output_path
+                    st.session_state.quality_level = quality_level
+                    st.session_state.validation_result = validation_result
+                    st.session_state.exporter = exporter
+                    st.session_state.export_complete = True
 
-                        # Store in session state for display
-                        st.session_state.output_path = output_path
-                        st.session_state.quality_level = quality_level
-                        st.session_state.validation_result = validation_result
-                        st.session_state.exporter = exporter
-                        st.session_state.export_complete = True
+            except Exception as e:
+                st.error(f"Export failed: {e}")
+                st.session_state.export_complete = False
 
-                except Exception as e:
-                    st.error(f"Export failed: {e}")
-                    st.session_state.export_complete = False
+    # Display export results
+    if st.session_state.get("export_complete", False):
+        st.balloons()
 
-        # Display export results - fills all space below
-        if st.session_state.get("export_complete", False):
-            st.balloons()
+        from trailpack.packing.packing import read_parquet
 
-            from trailpack.packing.packing import read_parquet
+        # Read back the exported file
+        exported_df, exported_metadata = read_parquet(st.session_state.output_path)
 
-            # Read back the exported file
-            exported_df, exported_metadata = read_parquet(st.session_state.output_path)
+        # Display success message with quality level
+        quality_level = st.session_state.get("quality_level", "VALID")
+        st.success(
+            f"Data package created successfully!\n\n**Validation Level:** {quality_level}"
+        )
 
-            # Display success message with quality level
-            quality_level = st.session_state.get("quality_level", "VALID")
-            st.success(
-                f"Data package created successfully!\n\n**Validation Level:** {quality_level}"
+        # Display data sample
+        st.markdown("### 📊 Data Sample (first 10 rows)")
+        st.dataframe(exported_df.head(10), use_container_width=True)
+
+        # Display metadata in JSON format
+        st.markdown("### **Embedded Metadata")
+        st.json(exported_metadata)
+
+        # Offer download
+        with open(st.session_state.output_path, "rb") as f:
+            parquet_data = f.read()
+
+        st.download_button(
+            label="⬇️ Download Parquet File",
+            data=parquet_data,
+            file_name=export_name,
+            mime="application/vnd.apache.parquet",
+            use_container_width=True,
+        )
+
+        # Validation report download
+        if st.session_state.get("validation_result") and st.session_state.get(
+            "exporter"
+        ):
+            validation_report = (
+                st.session_state.exporter.generate_validation_report(
+                    st.session_state.validation_result
+                )
             )
 
-            # Display data sample
-            st.markdown("### 📊 Data Sample (first 10 rows)")
-            st.dataframe(exported_df.head(10), use_container_width=True)
-
-            # Display metadata in JSON format
-            st.markdown("### **Embedded Metadata")
-            st.json(exported_metadata)
-
-            # Offer download
-            with open(st.session_state.output_path, "rb") as f:
-                parquet_data = f.read()
+            report_filename = (
+                f"{export_name.replace('.parquet', '')}_validation_report.txt"
+            )
 
             st.download_button(
-                label="⬇️ Download Parquet File",
-                data=parquet_data,
-                file_name=export_name,
-                mime="application/vnd.apache.parquet",
+                label="Download Validation Report",
+                data=validation_report,
+                file_name=report_filename,
+                mime="text/plain",
                 use_container_width=True,
             )
 
-            # Validation report download
-            if st.session_state.get("validation_result") and st.session_state.get(
-                "exporter"
-            ):
-                validation_report = (
-                    st.session_state.exporter.generate_validation_report(
-                        st.session_state.validation_result
-                    )
-                )
+        # Config downloads
+        st.markdown("### Configuration Files")
+        st.markdown(
+            "Download reusable configuration files for reproducible processing"
+        )
 
-                report_filename = (
-                    f"{export_name.replace('.parquet', '')}_validation_report.txt"
-                )
+        # Build configs from session state
+        mapping_config = build_mapping_config(
+            column_mappings=st.session_state.column_mappings,
+            file_name=st.session_state.file_name,
+            sheet_name=st.session_state.selected_sheet,
+            language=st.session_state.language,
+        )
 
-                st.download_button(
-                    label="Download Validation Report",
-                    data=validation_report,
-                    file_name=report_filename,
-                    mime="text/plain",
-                    use_container_width=True,
-                )
+        metadata_config = build_metadata_config(
+            general_details=st.session_state.general_details
+        )
 
-            # Config downloads
-            st.markdown("### Configuration Files")
-            st.markdown(
-                "Download reusable configuration files for reproducible processing"
+        # Generate filenames
+        package_name = st.session_state.general_details.get("name")
+        mapping_filename = generate_config_filename(
+            config_type="mapping",
+            package_name=package_name,
+            file_name=st.session_state.file_name,
+            sheet_name=st.session_state.selected_sheet,
+        )
+        metadata_filename = generate_config_filename(
+            config_type="metadata",
+            package_name=package_name,
+            file_name=st.session_state.file_name,
+        )
+
+        # Download buttons in two columns
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.download_button(
+                label="Download Mapping Config",
+                data=export_mapping_json(mapping_config),
+                file_name=mapping_filename,
+                mime="application/json",
+                use_container_width=True,
+                help="Column-to-ontology mappings for reuse with CLI or other datasets",
             )
 
-            # Build configs from session state
-            mapping_config = build_mapping_config(
-                column_mappings=st.session_state.column_mappings,
-                file_name=st.session_state.file_name,
-                sheet_name=st.session_state.selected_sheet,
-                language=st.session_state.language,
+        with col2:
+            st.download_button(
+                label="Download Metadata Config",
+                data=export_metadata_json(metadata_config),
+                file_name=metadata_filename,
+                mime="application/json",
+                use_container_width=True,
+                help="Package metadata configuration for reproducible exports",
             )
 
-            metadata_config = build_metadata_config(
-                general_details=st.session_state.general_details
-            )
+    # Navigation
+    st.markdown("---")
+    col1, col2, col3 = st.columns([1, 1, 1])
 
-            # Generate filenames
-            package_name = st.session_state.general_details.get("name")
-            mapping_filename = generate_config_filename(
-                config_type="mapping",
-                package_name=package_name,
-                file_name=st.session_state.file_name,
-                sheet_name=st.session_state.selected_sheet,
-            )
-            metadata_filename = generate_config_filename(
-                config_type="metadata",
-                package_name=package_name,
-                file_name=st.session_state.file_name,
-            )
-
-            # Download buttons in two columns
-            col1, col2 = st.columns(2)
-
-            with col1:
-                st.download_button(
-                    label="Download Mapping Config",
-                    data=export_mapping_json(mapping_config),
-                    file_name=mapping_filename,
-                    mime="application/json",
-                    use_container_width=True,
-                    help="Column-to-ontology mappings for reuse with CLI or other datasets",
-                )
-
-            with col2:
-                st.download_button(
-                    label="Download Metadata Config",
-                    data=export_metadata_json(metadata_config),
-                    file_name=metadata_filename,
-                    mime="application/json",
-                    use_container_width=True,
-                    help="Package metadata configuration for reproducible exports",
-                )
+    with col1:
+        if st.button("Back", use_container_width=True):
+            navigate_to(4)
 
 
 # Footer
