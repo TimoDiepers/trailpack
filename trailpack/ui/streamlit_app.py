@@ -1595,51 +1595,56 @@ The resource name identifies your data file in the package. It must follow speci
             # Export section on page 4
             st.markdown("---")
             st.markdown("### Export Data Package")
-            export_name = st.text_input(
-                "Export file name",
-                value=f"{st.session_state.general_details['name']}.parquet",
-                help="Name for the exported Parquet file",
-                key="export_filename",
-            )
+            
+            # Center the export name field and button using columns
+            col1, col2, col3 = st.columns([1, 2, 1])
+            
+            with col2:
+                export_name = st.text_input(
+                    "Export file name",
+                    value=f"{st.session_state.general_details['name']}.parquet",
+                    help="Name for the exported Parquet file",
+                    key="export_filename",
+                )
 
-            if st.button(
-                "📦 Generate Parquet File", type="primary", use_container_width=True
-            ):
-                with st.spinner("Building data package..."):
-                    try:
-                        from trailpack.packing.export_service import DataPackageExporter
-                        from trailpack.packing.packing import read_parquet
+                if st.button(
+                    "📦 Generate Parquet File", type="primary", use_container_width=True
+                ):
+                    with st.spinner("Building data package..."):
+                        try:
+                            from trailpack.packing.export_service import DataPackageExporter
+                            from trailpack.packing.packing import read_parquet
 
-                        exporter = DataPackageExporter(
-                            df=st.session_state.df,
-                            column_mappings=st.session_state.column_mappings,
-                            general_details=st.session_state.general_details,
-                            sheet_name=st.session_state.selected_sheet,
-                            file_name=st.session_state.file_name,
-                            suggestions_cache=st.session_state.suggestions_cache,
-                        )
-
-                        with tempfile.NamedTemporaryFile(
-                            delete=False, suffix=".parquet"
-                        ) as tmp:
-                            output_path, quality_level, validation_result = exporter.export(
-                                tmp.name
+                            exporter = DataPackageExporter(
+                                df=st.session_state.df,
+                                column_mappings=st.session_state.column_mappings,
+                                general_details=st.session_state.general_details,
+                                sheet_name=st.session_state.selected_sheet,
+                                file_name=st.session_state.file_name,
+                                suggestions_cache=st.session_state.suggestions_cache,
                             )
 
-                            # Store in session state for display
-                            st.session_state.output_path = output_path
-                            st.session_state.quality_level = quality_level
-                            st.session_state.validation_result = validation_result
-                            st.session_state.exporter = exporter
-                            st.session_state.export_complete = True
-                            st.session_state.export_name = export_name
+                            with tempfile.NamedTemporaryFile(
+                                delete=False, suffix=".parquet"
+                            ) as tmp:
+                                output_path, quality_level, validation_result = exporter.export(
+                                    tmp.name
+                                )
 
-                        # Navigate to page 5 to show results
-                        navigate_to(5)
+                                # Store in session state for display
+                                st.session_state.output_path = output_path
+                                st.session_state.quality_level = quality_level
+                                st.session_state.validation_result = validation_result
+                                st.session_state.exporter = exporter
+                                st.session_state.export_complete = True
+                                st.session_state.export_name = export_name
 
-                    except Exception as e:
-                        st.error(f"Export failed: {e}")
-                        st.session_state.export_complete = False
+                            # Navigate to page 5 to show results
+                            navigate_to(5)
+
+                        except Exception as e:
+                            st.error(f"Export failed: {e}")
+                            st.session_state.export_complete = False
         else:
             st.warning(
                 f"Please fill in the required fields: {', '.join(missing_fields)}"
