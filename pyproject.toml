@@ -87,6 +87,10 @@ norecursedirs = [
 ]
 testpaths = ["tests/*.py"]
 
+[tool.pytest.anyio]
+# Configure anyio to only use asyncio backend, not trio
+anyio_backends = ["asyncio"]
+
 [tool.flake8]
 # Some sane defaults for the code style checker flake8
 max_line_length = 88
