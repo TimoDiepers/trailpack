@@ -164,6 +164,8 @@ if "resource_name_confirmed" not in st.session_state:
     st.session_state.resource_name_confirmed = False
 if "resource_name_accepted" not in st.session_state:
     st.session_state.resource_name_accepted = False
+if "resource_name_editing" not in st.session_state:
+    st.session_state.resource_name_editing = False
 
 
 def render_sidebar_header():
@@ -914,34 +916,29 @@ The resource name identifies your data file in the package. It must follow speci
     # Initialize validator
     validator = StandardValidator()
     
-    # Get original filename and check validity
-    if st.session_state.file_name:
-        original_name = Path(st.session_state.file_name).stem
+    # Get original filename + sheet name and check validity
+    if st.session_state.file_name and st.session_state.selected_sheet:
+        # Combine filename and sheet name
+        file_stem = Path(st.session_state.file_name).stem
+        sheet_name = st.session_state.selected_sheet.replace(' ', '_')
+        original_name = f"{file_stem}_{sheet_name}"
         is_valid_original, _, suggested_name = validator.validate_and_sanitize_resource_name(original_name)
         
         # Only show the error/suggestion if not yet accepted
         if not st.session_state.resource_name_accepted:
-            # Show original filename with validation status
+            # Show source file and sheet info
+            st.info(f"📄 **Source:** `{file_stem}` (file) + `{st.session_state.selected_sheet}` (sheet)")
+            
+            # Show original combined name with validation status
             if is_valid_original:
-                st.info(f"📄 **Source filename:** `{original_name}` ✅ (valid)")
+                st.success(f"✅ **Combined name is valid:** `{original_name}`")
                 # If valid and not set, use it
                 if not st.session_state.resource_name:
                     st.session_state.resource_name = original_name
                     st.session_state.resource_name_accepted = True
             else:
                 # Show the problem prominently
-                st.error(f"❌ **Source filename has issues:** `{original_name}`")
-                
-                col1, col2 = st.columns([2, 1])
-                with col1:
-                    st.markdown(f"**Suggested sanitized name:** `{suggested_name}`")
-                with col2:
-                    if st.button("✅ Accept Suggestion", use_container_width=True, type="primary", key="btn_accept_suggestion"):
-                        st.session_state.resource_name = suggested_name
-                        st.session_state.resource_name_confirmed = True
-                        st.session_state.resource_name_accepted = True
-                        st.session_state.general_details["resource_name"] = suggested_name
-                        st.rerun()
+                st.error(f"❌ **Combined name has issues:** `{original_name}`")
                 
                 st.warning("""
 **Issues found:**
@@ -949,6 +946,59 @@ The resource name identifies your data file in the package. It must follow speci
 - Spaces → replaced with underscores
 - Special characters → removed
                 """)
+                
+                # Check if we're in edit mode or display mode
+                if not st.session_state.resource_name_editing:
+                    # Display mode: show suggestion with Accept/Edit buttons
+                    st.markdown(f"**Suggested sanitized name:** `{suggested_name}`")
+                    
+                    col1, col2, col3 = st.columns([1, 1, 2])
+                    with col1:
+                        if st.button("✅ Accept", use_container_width=True, type="primary", key="btn_accept_suggestion"):
+                            st.session_state.resource_name = suggested_name
+                            st.session_state.resource_name_confirmed = True
+                            st.session_state.resource_name_accepted = True
+                            st.session_state.resource_name_editing = False
+                            st.session_state.general_details["resource_name"] = suggested_name
+                            st.rerun()
+                    with col2:
+                        if st.button("✏️ Edit", use_container_width=True, key="btn_edit_suggestion"):
+                            st.session_state.resource_name = suggested_name
+                            st.session_state.resource_name_editing = True
+                            st.rerun()
+                else:
+                    # Edit mode: show text input with validation
+                    resource_name_edit = st.text_input(
+                        "Edit Resource Name",
+                        value=st.session_state.resource_name or suggested_name,
+                        placeholder="my-data-resource",
+                        help="Edit the resource name. Must contain only lowercase letters, numbers, hyphens, underscores, and dots.",
+                        key="resource_name_edit_suggestion"
+                    )
+                    
+                    if resource_name_edit:
+                        is_valid_edit, _, suggestion_edit = validator.validate_and_sanitize_resource_name(resource_name_edit)
+                        
+                        if is_valid_edit:
+                            st.success(f"✅ **`{resource_name_edit}`** is valid!")
+                        else:
+                            st.error(f"❌ **`{resource_name_edit}`** contains invalid characters.")
+                            st.markdown(f"**Suggested fix:** `{suggestion_edit}`")
+                        
+                        # Show buttons for editing
+                        col1, col2, col3 = st.columns([1, 1, 2])
+                        with col1:
+                            if st.button("✅ Accept", use_container_width=True, type="primary", key="btn_accept_edit", disabled=not is_valid_edit):
+                                st.session_state.resource_name = resource_name_edit
+                                st.session_state.resource_name_confirmed = True
+                                st.session_state.resource_name_accepted = True
+                                st.session_state.resource_name_editing = False
+                                st.session_state.general_details["resource_name"] = resource_name_edit
+                                st.rerun()
+                        with col2:
+                            if st.button("↩️ Cancel", use_container_width=True, key="btn_cancel_edit"):
+                                st.session_state.resource_name_editing = False
+                                st.rerun()
     
     # Show resource name input (either already accepted or for manual editing)
     # Only show input section if name has been accepted or is being manually entered
@@ -960,49 +1010,65 @@ The resource name identifies your data file in the package. It must follow speci
             st.success(f"✅ **Resource name:** `{st.session_state.resource_name}`")
             if st.button("✏️ Edit Resource Name", key="btn_edit_resource_name"):
                 st.session_state.resource_name_accepted = False
+                st.session_state.resource_name_editing = False  # Reset editing flag
                 st.rerun()
         else:
             # Resource name input with real-time validation
-            col_name1, col_name2 = st.columns([3, 1])
+            resource_name_input = st.text_input(
+                "Resource Name *",
+                value=st.session_state.resource_name or "",
+                placeholder="my-data-resource",
+                help="Enter or edit the resource name. Must follow the naming rules above. (Required)",
+                key="resource_name_input_meta"
+            )
             
-            with col_name1:
-                resource_name_input = st.text_input(
-                    "Resource Name *",
-                    value=st.session_state.resource_name or "",
-                    placeholder="my-data-resource",
-                    help="Enter or edit the resource name. Must follow the naming rules above. (Required)",
-                    key="resource_name_input_meta"
-                )
-            
-            with col_name2:
-                if st.button("🔄 Reset", help="Reset to sanitized filename", use_container_width=True, key="btn_reset"):
-                    if st.session_state.file_name:
-                        original_name = Path(st.session_state.file_name).stem
-                        st.session_state.resource_name = validator.sanitize_resource_name(original_name)
-                        st.session_state.resource_name_accepted = False
-                        st.rerun()
-            
-            # Validate the entered/edited name
+            # Validate the entered/edited name in real-time
             if resource_name_input:
                 is_valid_input, _, suggestion = validator.validate_and_sanitize_resource_name(resource_name_input)
                 
                 if is_valid_input:
                     st.success(f"✅ **`{resource_name_input}`** is a valid resource name!")
-                    st.session_state.resource_name = resource_name_input
-                    st.session_state.resource_name_confirmed = True
-                    st.session_state.resource_name_accepted = True
-                    st.session_state.general_details["resource_name"] = resource_name_input
+                    # Show accept button for valid name
+                    col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 2])
+                    with col_btn1:
+                        if st.button("✅ Accept", use_container_width=True, type="primary", key="btn_accept_manual"):
+                            st.session_state.resource_name = resource_name_input
+                            st.session_state.resource_name_confirmed = True
+                            st.session_state.resource_name_accepted = True
+                            st.session_state.general_details["resource_name"] = resource_name_input
+                            st.rerun()
+                    with col_btn2:
+                        if st.button("🔄 Reset", help="Reset to sanitized filename + sheet", use_container_width=True, key="btn_reset"):
+                            if st.session_state.file_name and st.session_state.selected_sheet:
+                                file_stem = Path(st.session_state.file_name).stem
+                                sheet_name = st.session_state.selected_sheet.replace(' ', '_')
+                                original_name = f"{file_stem}_{sheet_name}"
+                                st.session_state.resource_name = validator.sanitize_resource_name(original_name)
+                                st.session_state.resource_name_accepted = False
+                                st.rerun()
                 else:
-                    st.error(
-                        f"❌ **`{resource_name_input}`** contains invalid characters."
-                    )
+                    st.error(f"❌ **`{resource_name_input}`** contains invalid characters.")
                     st.markdown(f"**Suggested fix:** `{suggestion}`")
-                    if st.button("✅ Use Suggestion", key="btn_use_suggestion"):
-                        st.session_state.resource_name = suggestion
-                        st.session_state.resource_name_accepted = True
-                        st.session_state.resource_name_confirmed = True
-                        st.session_state.general_details["resource_name"] = suggestion
-                        st.rerun()
+                    
+                    # Show buttons for invalid name
+                    col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 2])
+                    with col_btn1:
+                        if st.button("✅ Use Suggestion", use_container_width=True, type="primary", key="btn_use_suggestion"):
+                            st.session_state.resource_name = suggestion
+                            st.session_state.resource_name_accepted = True
+                            st.session_state.resource_name_confirmed = True
+                            st.session_state.general_details["resource_name"] = suggestion
+                            st.rerun()
+                    with col_btn2:
+                        if st.button("🔄 Reset", help="Reset to sanitized filename + sheet", use_container_width=True, key="btn_reset_invalid"):
+                            if st.session_state.file_name and st.session_state.selected_sheet:
+                                file_stem = Path(st.session_state.file_name).stem
+                                sheet_name = st.session_state.selected_sheet.replace(' ', '_')
+                                original_name = f"{file_stem}_{sheet_name}"
+                                st.session_state.resource_name = validator.sanitize_resource_name(original_name)
+                                st.session_state.resource_name_accepted = False
+                                st.rerun()
+                    
                     st.session_state.resource_name_confirmed = False
                     st.session_state.general_details.pop("resource_name", None)
             else:
