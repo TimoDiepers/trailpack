@@ -849,7 +849,7 @@ class StandardValidator:
     
     def sanitize_resource_name(self, name: str) -> str:
         """
-        Sanitize resource name to match the required pattern ^[a-z0-9\\-_\\.]+$.
+        Sanitize resource name to match the required pattern ^[a-z0-9\-_.]+$.
         
         The resource name must only contain:
         - Lowercase letters (a-z)
