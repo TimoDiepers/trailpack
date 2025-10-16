@@ -67,13 +67,24 @@ st.set_page_config(
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200');
 
-    /* Apply Montserrat to all text */
+    /* Apply Montserrat to all text, but exclude Material Icons */
     html, body, [class*="css"], [class*="st-"],
-    h1, h2, h3, h4, h5, h6, p, span, div, label, button, input, textarea, select,
+    h1, h2, h3, h4, h5, h6, p, label, input, textarea, select,
     .stMarkdown, .stText, .stButton, .stTextInput, .stSelectbox, .stTextArea,
     .stRadio, .stCheckbox, .stMetric, .stDataFrame, .stCaption {
         font-family: 'Montserrat', sans-serif !important;
+    }
+    
+    /* Ensure Material Icons elements use the correct font */
+    span[data-testid*="stIcon"],
+    span[data-testid*="Icon"],
+    button span[class*="material"],
+    [class*="material-icons"],
+    [data-testid*="collapsedControl"] span,
+    [data-testid*="baseButton"] span[role="img"] {
+        font-family: 'Material Symbols Outlined', 'Material Icons' !important;
     }
 
     </style>
