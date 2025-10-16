@@ -26,6 +26,7 @@ import tempfile
 import json
 from typing import Dict, List, Optional, Any
 from datetime import datetime
+from urllib.parse import quote
 
 import streamlit as st
 import pandas as pd
@@ -52,6 +53,41 @@ LOGO_BASE64 = (
     if ICON_PATH.is_file()
     else None
 )
+
+
+def iri_to_web_url(iri: str, language: str = "en") -> str:
+    """
+    Convert an IRI to a vocab.sentier.dev web page URL.
+    
+    Args:
+        iri: The IRI (e.g., "https://vocab.sentier.dev/Geonames/A")
+        language: Language code (default: "en")
+    
+    Returns:
+        Web page URL (e.g., "https://vocab.sentier.dev/web/concept/...?concept_scheme=...&language=en")
+    
+    Example:
+        >>> iri_to_web_url("https://vocab.sentier.dev/Geonames/A", "en")
+        'https://vocab.sentier.dev/web/concept/https%3A%2F%2Fvocab.sentier.dev%2FGeonames%2FA?concept_scheme=https%3A%2F%2Fvocab.sentier.dev%2FGeonames&language=en'
+    """
+    # Extract the concept scheme from the IRI
+    # For "https://vocab.sentier.dev/namespace/type/term", scheme is "https://vocab.sentier.dev/namespace/"
+    parts = iri.split('/')
+    if len(parts) >= 5 and parts[2] == 'vocab.sentier.dev':
+        # Scheme is base_url + namespace + trailing slash
+        concept_scheme = '/'.join(parts[:4]) + '/'
+    else:
+        # Fallback: just use the IRI as-is
+        concept_scheme = iri
+    
+    # URL encode the IRI and concept scheme
+    encoded_iri = quote(iri, safe='')
+    encoded_scheme = quote(concept_scheme, safe='')
+    
+    # Construct the web URL
+    web_url = f"https://vocab.sentier.dev/web/concept/{encoded_iri}?concept_scheme={encoded_scheme}&language={language}"
+    
+    return web_url
 
 
 # Page configuration
@@ -562,9 +598,10 @@ elif st.session_state.page == 3:
                                 selected_label = options[selected_idx]
                                 st.session_state.column_mappings[column] = selected_id
 
-                                # Display selected concept with clickable link
+                                # Display selected concept with clickable link to web page
+                                web_url = iri_to_web_url(selected_id, st.session_state.language)
                                 st.info(
-                                    f"**Selected:** {selected_label}\n\n[🔗 {selected_id}]({selected_id})"
+                                    f"**Selected:** {selected_label}\n\n[🔗 View on vocab.sentier.dev]({web_url})"
                                 )
 
                     # If numeric, show unit search field below ontology
@@ -625,9 +662,10 @@ elif st.session_state.page == 3:
                                     selected_unit_label = options[selected_idx]
                                     st.session_state.column_mappings[f"{column}_unit"] = selected_unit_id
 
-                                    # Display selected unit with clickable link
+                                    # Display selected unit with clickable link to web page
+                                    web_url = iri_to_web_url(selected_unit_id, st.session_state.language)
                                     st.info(
-                                        f"**Selected unit:** {selected_unit_label}\n\n[🔗 {selected_unit_id}]({selected_unit_id})"
+                                        f"**Selected unit:** {selected_unit_label}\n\n[🔗 View on vocab.sentier.dev]({web_url})"
                                     )
 
                 st.markdown("---")
