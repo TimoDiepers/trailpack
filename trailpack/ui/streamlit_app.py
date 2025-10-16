@@ -90,7 +90,8 @@ def iri_to_web_url(iri: str, language: str = "en") -> str:
     encoded_scheme = quote(concept_scheme, safe="")
 
     # Construct the web URL
-    web_url = f"https://vocab.sentier.dev/web/concept/{encoded_iri}?concept_scheme={encoded_scheme}&language={language}"
+    #web_url = f"https://vocab.sentier.dev/web/concept/{encoded_iri}?concept_scheme={encoded_scheme}&language={language}"
+    web_url = f"https://vocab.sentier.dev/web/concept/{encoded_iri}"
 
     return web_url
 
