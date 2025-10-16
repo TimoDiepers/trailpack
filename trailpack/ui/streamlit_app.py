@@ -23,21 +23,16 @@ except ImportError:
 
 import asyncio
 import base64
-import tempfile
 import json
-from typing import Dict, List, Optional, Any
+import tempfile
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 from urllib.parse import quote
 
-import streamlit as st
-import pandas as pd
 import openpyxl
+import pandas as pd
+import streamlit as st
 
-from trailpack.excel import ExcelReader
-from trailpack.io.smart_reader import SmartDataReader
-from trailpack.pyst.api.requests.suggest import SUPPORTED_LANGUAGES
-from trailpack.pyst.api.client import get_suggest_client
-from trailpack.packing.datapackage_schema import DataPackageSchema, COMMON_LICENSES
 from trailpack.config import (
     build_mapping_config,
     build_metadata_config,
@@ -45,7 +40,11 @@ from trailpack.config import (
     export_metadata_json,
     generate_config_filename,
 )
-
+from trailpack.excel import ExcelReader
+from trailpack.io.smart_reader import SmartDataReader
+from trailpack.packing.datapackage_schema import COMMON_LICENSES, DataPackageSchema
+from trailpack.pyst.api.client import get_suggest_client
+from trailpack.pyst.api.requests.suggest import SUPPORTED_LANGUAGES
 
 ICON_PATH = Path(__file__).parent / "icon.svg"
 PAGE_ICON = str(ICON_PATH) if ICON_PATH.is_file() else "🎒"
@@ -151,6 +150,8 @@ if "df" not in st.session_state:
     st.session_state.df = None
 if "column_mappings" not in st.session_state:
     st.session_state.column_mappings = {}
+if "column_descriptions" not in st.session_state:
+    st.session_state.column_descriptions = {}
 if "suggestions_cache" not in st.session_state:
     st.session_state.suggestions_cache = {}
 if "view_object" not in st.session_state:
@@ -196,6 +197,7 @@ def on_sheet_change():
         st.session_state.selected_sheet = selected
         st.session_state.suggestions_cache = {}
         st.session_state.column_mappings = {}
+        st.session_state.column_descriptions = {}
         st.session_state.view_object = {}
 
 
@@ -791,6 +793,20 @@ elif st.session_state.page == 3:
                                         f"**Selected unit:** {selected_unit_label}\n\n[🔗 View on vocab.sentier.dev]({web_url})"
                                     )
 
+                    # Optional custom description field for all columns
+                    custom_desc = st.text_input(
+                        "Custom description (optional)",
+                        key=f"desc_{column}",
+                        value=st.session_state.column_descriptions.get(column, ""),
+                        placeholder="Enter a custom description for this column...",
+                        help="Optional: Provide a custom description. If left empty, an automatic description will be generated based on ontology mapping or column name.",
+                    )
+                    if custom_desc:
+                        st.session_state.column_descriptions[column] = custom_desc
+                    elif column in st.session_state.column_descriptions:
+                        # Remove if user clears the field
+                        st.session_state.column_descriptions.pop(column, None)
+
                 st.markdown("---")
 
         # Generate view object internally (not displayed)
@@ -1285,6 +1301,7 @@ elif st.session_state.page == 4:
                         sheet_name=st.session_state.selected_sheet,
                         file_name=st.session_state.file_name,
                         suggestions_cache=st.session_state.suggestions_cache,
+                        column_descriptions=st.session_state.column_descriptions,
                     )
 
                     with tempfile.NamedTemporaryFile(

@@ -78,6 +78,56 @@ class TestColumnDescriptionWithoutOntology:
         assert project_field.rdf_type is None
         assert project_field.taxonomy_url is None
 
+    def test_custom_description_overrides_auto_generated(self):
+        """Test that custom descriptions override auto-generated ones."""
+        df = pd.DataFrame(
+            {
+                "capacity": [100, 150, 200],
+                "temperature": [20.5, 21.0, 22.3],
+                "notes": ["A", "B", "C"],
+            }
+        )
+
+        column_mappings = {
+            "temperature": "https://vocab.sentier.dev/model-terms/temperature",
+            "temperature_unit": "https://vocab.sentier.dev/units/unit/DegreeCelsius",
+        }
+
+        column_descriptions = {
+            "capacity": "Maximum power generation capacity in MW",
+            "temperature": "Ambient temperature during measurement",
+        }
+
+        general_details = {"name": "test-dataset", "title": "Test Dataset"}
+
+        exporter = DataPackageExporter(
+            df=df,
+            column_mappings=column_mappings,
+            general_details=general_details,
+            sheet_name="MeasurementData",
+            file_name="data.xlsx",
+            column_descriptions=column_descriptions,
+        )
+
+        fields = exporter.build_fields()
+
+        # capacity has custom description - should use it
+        capacity_field = next(f for f in fields if f.name == "capacity")
+        assert capacity_field.description == "Maximum power generation capacity in MW"
+        assert capacity_field.rdf_type is None
+
+        # temperature has custom description - should override ontology description
+        temp_field = next(f for f in fields if f.name == "temperature")
+        assert temp_field.description == "Ambient temperature during measurement"
+        assert (
+            temp_field.rdf_type == "https://vocab.sentier.dev/model-terms/temperature"
+        )
+
+        # notes has no custom description and no ontology - should use auto-generated
+        notes_field = next(f for f in fields if f.name == "notes")
+        assert notes_field.description == "notes (from MeasurementData)"
+        assert notes_field.rdf_type is None
+
     def test_mixed_columns_with_and_without_ontology(self):
         """Test that mixed columns (some with, some without ontology) work correctly."""
         df = pd.DataFrame(
