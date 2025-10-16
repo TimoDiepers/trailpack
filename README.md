@@ -44,10 +44,14 @@ Or using the run script:
 python trailpack/ui/run_streamlit.py
 ```
 
-The UI provides a 3-step workflow with smooth transitions:
+The UI provides a step-by-step workflow with smooth transitions:
 1. **Upload File & Select Language**: Upload an Excel file and select language for PyST mapping
 2. **Select Sheet**: Choose which sheet to process with data preview
 3. **Map Columns**: Map each column to PyST concepts with automatic suggestions and dataframe preview
+4. **General Details**: Provide package metadata including:
+   - Basic information (name, title, description, version)
+   - **Resource name** with automatic sanitization and validation
+   - Licenses, contributors, and data sources
 
 The view object is stored internally for further processing.
 

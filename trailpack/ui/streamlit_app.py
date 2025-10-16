@@ -38,6 +38,7 @@ from trailpack.io.smart_reader import SmartDataReader
 from trailpack.pyst.api.requests.suggest import SUPPORTED_LANGUAGES
 from trailpack.pyst.api.client import get_suggest_client
 from trailpack.packing.datapackage_schema import DataPackageSchema, COMMON_LICENSES
+from trailpack.validation import StandardValidator
 from trailpack.config import (
     build_mapping_config,
     build_metadata_config,
@@ -157,6 +158,10 @@ if "view_object" not in st.session_state:
     st.session_state.view_object = {}
 if "general_details" not in st.session_state:
     st.session_state.general_details = {}
+if "resource_name" not in st.session_state:
+    st.session_state.resource_name = None
+if "resource_name_confirmed" not in st.session_state:
+    st.session_state.resource_name_confirmed = False
 
 
 def render_sidebar_header():
@@ -450,7 +455,7 @@ if st.session_state.page == 1:
     col1, col2, col3 = st.columns([1, 1, 1])
 
     with col3:
-        # Enable Next button if file exists (either uploaded or in session state)
+        # Enable Next button if file exists
         has_file = uploaded_file is not None or st.session_state.file_name is not None
 
         if has_file:
@@ -478,7 +483,7 @@ if st.session_state.page == 1:
 
                 navigate_to(2)
         else:
-            st.button("Next ➡️", type="primary", disabled=True, use_container_width=True)
+            st.button("Next ➡️", type="primary", disabled=True, use_container_width=True, help="Please upload a file first")
 
 
 # Page 2: Sheet Selection
@@ -891,6 +896,82 @@ elif st.session_state.page == 4:
             st.session_state.general_details["version"] = version
     elif version == "":
         st.session_state.general_details.pop("version", None)
+
+    st.markdown("---")
+    st.markdown("### 📝 Resource Name Configuration")
+    st.markdown("""
+The resource name identifies your data file in the package. It must follow specific naming rules:
+- Only **lowercase letters** (a-z)
+- **Numbers** (0-9)
+- **Hyphens** (-), **underscores** (_), and **dots** (.)
+- No spaces or special characters
+
+**Example:** `solar-panel-data`, `emissions_2024`, `my.dataset.v1`
+    """)
+    
+    # Generate initial resource name from file name if not set
+    if st.session_state.file_name and not st.session_state.resource_name:
+        validator = StandardValidator()
+        original_name = Path(st.session_state.file_name).stem
+        st.session_state.resource_name = validator.sanitize_resource_name(original_name)
+    
+    # Show original filename context
+    if st.session_state.file_name:
+        st.info(f"📄 **Source file:** `{Path(st.session_state.file_name).stem}`")
+        
+        # Initialize validator for name checking
+        validator = StandardValidator()
+        original_name = Path(st.session_state.file_name).stem
+        
+        # Check if original name is valid
+        is_valid, _, suggested_name = validator.validate_and_sanitize_resource_name(original_name)
+        
+        if not is_valid:
+            st.warning(
+                f"⚠️  The filename contains invalid characters. "
+                f"Suggested sanitized name: **`{suggested_name}`**"
+            )
+    
+    # Resource name input with real-time validation
+    col_name1, col_name2 = st.columns([3, 1])
+    
+    with col_name1:
+        resource_name_input = st.text_input(
+            "Resource Name *",
+            value=st.session_state.resource_name or "",
+            placeholder="my-data-resource",
+            help="Enter a name for this data resource. Must follow the naming rules above. (Required)",
+            key="resource_name_input_meta"
+        )
+    
+    with col_name2:
+        if st.button("🔄 Auto-clean", help="Automatically sanitize the resource name", use_container_width=True, key="btn_sanitize"):
+            if st.session_state.file_name:
+                validator = StandardValidator()
+                original_name = Path(st.session_state.file_name).stem
+                st.session_state.resource_name = validator.sanitize_resource_name(original_name)
+                st.rerun()
+    
+    # Validate the entered name
+    if resource_name_input:
+        validator = StandardValidator()
+        is_valid_input, _, suggestion = validator.validate_and_sanitize_resource_name(resource_name_input)
+        
+        if is_valid_input:
+            st.success(f"✅ **`{resource_name_input}`** is a valid resource name!")
+            st.session_state.resource_name = resource_name_input
+            st.session_state.resource_name_confirmed = True
+            st.session_state.general_details["resource_name"] = resource_name_input
+        else:
+            st.error(
+                f"❌ **`{resource_name_input}`** contains invalid characters. "
+                f"Suggested: **`{suggestion}`**"
+            )
+            st.session_state.resource_name_confirmed = False
+            st.session_state.general_details.pop("resource_name", None)
+    else:
+        st.session_state.resource_name_confirmed = False
+        st.session_state.general_details.pop("resource_name", None)
 
     st.markdown("### Additional Information")
 

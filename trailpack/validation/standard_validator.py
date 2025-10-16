@@ -196,7 +196,7 @@ class StandardValidator:
     
     The StandardValidator checks data packages for:
     - Metadata completeness (required and recommended fields)
-    - Resource definitions (proper schema, formats)
+    - Resource definitions (proper schema, formats, name sanitization)
     - Field definitions (types, units, constraints)
     - Data quality (missing values, duplicates, type consistency)
     - Schema matching (column types match field definitions)
@@ -205,6 +205,12 @@ class StandardValidator:
     - Measurements: Use appropriate SI or domain units (kg, m, °C, etc.)
     - Counts/IDs: Use dimensionless unit (http://qudt.org/vocab/unit/NUM)
     - Percentages: Use percent or dimensionless unit
+    
+    **Resource Name Sanitization:**
+    Resource names must match ^[a-z0-9\\-_.]+$. The validator automatically:
+    - Detects invalid resource names
+    - Suggests sanitized alternatives
+    - Can auto-sanitize names with sanitize_resource_name()
     
     **Automatic Inconsistency Export:**
     When type inconsistencies are detected during validation (e.g., mixed types in
@@ -223,6 +229,10 @@ class StandardValidator:
         >>> # Validate with schema (auto-exports inconsistencies.csv if errors found)
         >>> result = validator.validate_data_quality(df, schema=schema)
         >>> print(result)  # Shows errors and exports CSV automatically
+        
+        >>> # Sanitize resource names
+        >>> clean_name = validator.sanitize_resource_name("My File!")
+        >>> print(clean_name)  # "my_file"
     """
     
     def __init__(self, version: str = "1.0.0"):
@@ -362,6 +372,8 @@ class StandardValidator:
         """
         Validate a resource (data file) definition.
         
+        Automatically checks and suggests sanitized names for invalid resource names.
+        
         Args:
             resource: Resource dictionary from metadata
             
@@ -388,6 +400,19 @@ class StandardValidator:
                         field_def
                     )
                     result.errors.extend(field_result.errors)
+                    
+                    # Special handling for resource name - suggest sanitized version
+                    if field_name == "name":
+                        is_valid, _, suggestion = self.validate_and_sanitize_resource_name(
+                            resource[field_name], 
+                            auto_fix=False
+                        )
+                        if not is_valid and suggestion:
+                            result.add_warning(
+                                f"Resource name '{resource[field_name]}' contains invalid characters. "
+                                f"Suggested name: '{suggestion}'",
+                                "name"
+                            )
         
         # 2. Check format preference
         if "format" in resource:
@@ -821,6 +846,90 @@ class StandardValidator:
                 result.add_error("URL must start with http:// or https://", field_name)
         
         return result
+    
+    def sanitize_resource_name(self, name: str) -> str:
+        """
+        Sanitize resource name to match the required pattern ^[a-z0-9\\-_\\.]+$.
+        
+        The resource name must only contain:
+        - Lowercase letters (a-z)
+        - Numbers (0-9)
+        - Hyphens (-)
+        - Underscores (_)
+        - Dots (.)
+        
+        Args:
+            name: Raw name string to sanitize
+            
+        Returns:
+            Sanitized name matching the required pattern
+            
+        Example:
+            >>> validator = StandardValidator()
+            >>> validator.sanitize_resource_name("My Resource Name!")
+            'my_resource_name'
+            >>> validator.sanitize_resource_name("Test@123")
+            'test123'
+        """
+        # Convert to lowercase
+        name = name.lower()
+        
+        # Replace spaces with underscores
+        name = name.replace(' ', '_')
+        
+        # Remove or replace invalid characters
+        # Keep only lowercase letters, numbers, hyphens, underscores, and dots
+        name = re.sub(r'[^a-z0-9\-_.]', '', name)
+        
+        # Ensure name doesn't start or end with dots
+        name = name.strip('.')
+        
+        # Ensure name is not empty after sanitization
+        if not name:
+            name = "resource"
+        
+        return name
+    
+    def validate_and_sanitize_resource_name(
+        self, 
+        name: str, 
+        auto_fix: bool = False
+    ) -> Tuple[bool, str, Optional[str]]:
+        """
+        Validate a resource name and optionally sanitize it.
+        
+        Args:
+            name: Resource name to validate
+            auto_fix: If True, return sanitized name; if False, just validate
+            
+        Returns:
+            Tuple of (is_valid, original_or_sanitized_name, suggestion)
+            - is_valid: Whether the original name is valid
+            - original_or_sanitized_name: Original name if valid/not auto_fix, sanitized if auto_fix
+            - suggestion: Sanitized name suggestion if original is invalid, None otherwise
+            
+        Example:
+            >>> validator = StandardValidator()
+            >>> is_valid, name, suggestion = validator.validate_and_sanitize_resource_name("Invalid Name!")
+            >>> print(f"Valid: {is_valid}, Suggestion: {suggestion}")
+            Valid: False, Suggestion: invalid_name
+            
+            >>> is_valid, name, _ = validator.validate_and_sanitize_resource_name("valid-name")
+            >>> print(f"Valid: {is_valid}, Name: {name}")
+            Valid: True, Name: valid-name
+        """
+        pattern = r"^[a-z0-9\-_.]+$"
+        is_valid = bool(re.match(pattern, name))
+        
+        if is_valid:
+            return True, name, None
+        
+        sanitized = self.sanitize_resource_name(name)
+        
+        if auto_fix:
+            return False, sanitized, None
+        else:
+            return False, name, sanitized
     
     def _determine_level(self, result: ValidationResult) -> str:
         """
