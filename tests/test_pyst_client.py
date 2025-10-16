@@ -21,8 +21,8 @@ async def test_get_concept_returns_definition():
             {
                 "@language": "en",
                 "@value": (
-                    "Includes all sorts of live animals, including things "
-                    "you probably never heard of before."
+                    "Includes all sorts of live animals, "
+                    "including things you probably never heard of before."
                 ),
             }
         ],
@@ -139,10 +139,7 @@ def test_fetch_concept_async_extracts_english_definition():
 
 
 def test_fetch_concept_async_falls_back_to_first_definition():
-    """
-    Test that fetch_concept_async falls back to first definition
-    if language not found.
-    """
+    """Test fetch_concept_async falls back to first definition if language not found."""
     import asyncio
     from trailpack.ui.streamlit_app import fetch_concept_async
     from trailpack.pyst.api.client import get_suggest_client
