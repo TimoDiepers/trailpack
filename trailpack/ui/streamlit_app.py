@@ -1543,6 +1543,46 @@ The resource name identifies your data file in the package. It must follow speci
             st.session_state.general_details["sources"].append(new_source)
             st.rerun()
 
+    # Check if required fields are filled (per DataPackageSchema.REQUIRED_FIELDS)
+    # Required: name, title, resources (auto), licenses, created (auto), contributors, sources
+    missing_fields = []
+
+    if "name" not in st.session_state.general_details:
+        missing_fields.append("Package Name")
+    if "title" not in st.session_state.general_details:
+        missing_fields.append("Title")
+    if not st.session_state.general_details.get("licenses"):
+        missing_fields.append("At least one License")
+    if not st.session_state.general_details.get("contributors"):
+        missing_fields.append("At least one Contributor")
+    if not st.session_state.general_details.get("sources"):
+        missing_fields.append("At least one Source")
+
+    has_required_fields = len(missing_fields) == 0
+
+    # Check if all filled fields are valid
+    all_valid = True
+    if "name" in st.session_state.general_details:
+        is_valid, _ = schema.validate_package_name(
+            st.session_state.general_details["name"]
+        )
+        all_valid = all_valid and is_valid
+    if "version" in st.session_state.general_details:
+        is_valid, _ = schema.validate_version(
+            st.session_state.general_details["version"]
+        )
+        all_valid = all_valid and is_valid
+    if "homepage" in st.session_state.general_details:
+        is_valid, _ = schema.validate_url(
+            st.session_state.general_details["homepage"]
+        )
+        all_valid = all_valid and is_valid
+    if "repository" in st.session_state.general_details:
+        is_valid, _ = schema.validate_url(
+            st.session_state.general_details["repository"]
+        )
+        all_valid = all_valid and is_valid
+
     # Navigation
     col1, col2, col3 = st.columns([1, 1, 1])
 
@@ -1551,106 +1591,63 @@ The resource name identifies your data file in the package. It must follow speci
             navigate_to(3)
 
     with col3:
-        # Check if required fields are filled (per DataPackageSchema.REQUIRED_FIELDS)
-        # Required: name, title, resources (auto), licenses, created (auto), contributors, sources
-        missing_fields = []
-
-        if "name" not in st.session_state.general_details:
-            missing_fields.append("Package Name")
-        if "title" not in st.session_state.general_details:
-            missing_fields.append("Title")
-        if not st.session_state.general_details.get("licenses"):
-            missing_fields.append("At least one License")
-        if not st.session_state.general_details.get("contributors"):
-            missing_fields.append("At least one Contributor")
-        if not st.session_state.general_details.get("sources"):
-            missing_fields.append("At least one Source")
-
-        has_required_fields = len(missing_fields) == 0
-
-        # Check if all filled fields are valid
-        all_valid = True
-        if "name" in st.session_state.general_details:
-            is_valid, _ = schema.validate_package_name(
-                st.session_state.general_details["name"]
-            )
-            all_valid = all_valid and is_valid
-        if "version" in st.session_state.general_details:
-            is_valid, _ = schema.validate_version(
-                st.session_state.general_details["version"]
-            )
-            all_valid = all_valid and is_valid
-        if "homepage" in st.session_state.general_details:
-            is_valid, _ = schema.validate_url(
-                st.session_state.general_details["homepage"]
-            )
-            all_valid = all_valid and is_valid
-        if "repository" in st.session_state.general_details:
-            is_valid, _ = schema.validate_url(
-                st.session_state.general_details["repository"]
-            )
-            all_valid = all_valid and is_valid
-
         if has_required_fields and all_valid:
             # Export section on page 4
-            st.markdown("---")
-            st.markdown("### Export Data Package")
-            
-            # Center the export name field and button using columns
-            col1, col2, col3 = st.columns([1, 2, 1])
-            
-            with col2:
-                export_name = st.text_input(
-                    "Export file name",
-                    value=f"{st.session_state.general_details['name']}.parquet",
-                    help="Name for the exported Parquet file",
-                    key="export_filename",
-                )
+            export_name = st.text_input(
+                "Export file name",
+                value=f"{st.session_state.general_details['name']}.parquet",
+                help="Name for the exported Parquet file",
+                key="export_filename",
+            )
 
-                if st.button(
-                    "📦 Generate Parquet File", type="primary", use_container_width=True
-                ):
-                    with st.spinner("Building data package..."):
-                        try:
-                            from trailpack.packing.export_service import DataPackageExporter
-                            from trailpack.packing.packing import read_parquet
+            if st.button(
+                "📦 Generate Parquet File", type="primary", use_container_width=True
+            ):
+                with st.spinner("Building data package..."):
+                    try:
+                        from trailpack.packing.export_service import DataPackageExporter
+                        from trailpack.packing.packing import read_parquet
 
-                            exporter = DataPackageExporter(
-                                df=st.session_state.df,
-                                column_mappings=st.session_state.column_mappings,
-                                general_details=st.session_state.general_details,
-                                sheet_name=st.session_state.selected_sheet,
-                                file_name=st.session_state.file_name,
-                                suggestions_cache=st.session_state.suggestions_cache,
+                        exporter = DataPackageExporter(
+                            df=st.session_state.df,
+                            column_mappings=st.session_state.column_mappings,
+                            general_details=st.session_state.general_details,
+                            sheet_name=st.session_state.selected_sheet,
+                            file_name=st.session_state.file_name,
+                            suggestions_cache=st.session_state.suggestions_cache,
+                        )
+
+                        with tempfile.NamedTemporaryFile(
+                            delete=False, suffix=".parquet"
+                        ) as tmp:
+                            output_path, quality_level, validation_result = exporter.export(
+                                tmp.name
                             )
 
-                            with tempfile.NamedTemporaryFile(
-                                delete=False, suffix=".parquet"
-                            ) as tmp:
-                                output_path, quality_level, validation_result = exporter.export(
-                                    tmp.name
-                                )
+                            # Store in session state for display
+                            st.session_state.output_path = output_path
+                            st.session_state.quality_level = quality_level
+                            st.session_state.validation_result = validation_result
+                            st.session_state.exporter = exporter
+                            st.session_state.export_complete = True
+                            st.session_state.export_name = export_name
 
-                                # Store in session state for display
-                                st.session_state.output_path = output_path
-                                st.session_state.quality_level = quality_level
-                                st.session_state.validation_result = validation_result
-                                st.session_state.exporter = exporter
-                                st.session_state.export_complete = True
-                                st.session_state.export_name = export_name
+                        # Navigate to page 5 to show results
+                        navigate_to(5)
 
-                            # Navigate to page 5 to show results
-                            navigate_to(5)
-
-                        except Exception as e:
-                            st.error(f"Export failed: {e}")
-                            st.session_state.export_complete = False
+                    except Exception as e:
+                        st.error(f"Export failed: {e}")
+                        st.session_state.export_complete = False
         else:
-            st.warning(
-                f"Please fill in the required fields: {', '.join(missing_fields)}"
-                if not has_required_fields
-                else "Please fix validation errors in the form"
+            st.button(
+                "📦 Generate Parquet File", type="primary", disabled=True, use_container_width=True
             )
+            if not has_required_fields:
+                st.caption(
+                    f"Please fill in the required fields: {', '.join(missing_fields)}"
+                )
+            elif not all_valid:
+                st.caption("Please fix validation errors in the form")
 
 
 # Page 5: Review Parquet File
