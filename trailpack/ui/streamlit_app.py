@@ -63,6 +63,21 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Apply Montserrat font globally
+st.markdown("""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap');
+
+    /* Apply Montserrat to all text elements */
+    html, body, [class*="css"], [class*="st-"],
+    h1, h2, h3, h4, h5, h6, p, span, div, label, button, input, textarea, select,
+    .stMarkdown, .stText, .stButton, .stTextInput, .stSelectbox, .stTextArea,
+    .stRadio, .stCheckbox, .stMetric, .stDataFrame, .stCaption {
+        font-family: 'Montserrat', sans-serif !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 
 # Initialize session state
 if "page" not in st.session_state:
@@ -96,12 +111,12 @@ def render_sidebar_header():
     if LOGO_BASE64:
         st.markdown(
             f"""
-            <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.5rem;">
+            <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.5rem;font-family:'Montserrat',sans-serif;">
                 <img src="data:image/svg+xml;base64,{LOGO_BASE64}" alt="Trailpack logo"
                      style="width:56px;height:auto;" />
                 <div style="display:flex;flex-direction:column;">
-                    <span style="font-size:1.3rem;font-weight:600;line-height:1;">Trailpack</span>
-                    <span style="font-size:0.95rem;color:#6b7280;line-height:1.2;">
+                    <span style="font-family:'Montserrat',sans-serif;font-size:1.3rem;font-weight:600;line-height:1;">Trailpack</span>
+                    <span style="font-family:'Montserrat',sans-serif;font-size:0.95rem;color:#6b7280;line-height:1.2;">
                         Excel to PyST Mapper
                     </span>
                 </div>
@@ -1158,6 +1173,6 @@ elif st.session_state.page == 4:
 # Footer
 st.markdown("---")
 st.markdown(
-    '<div style="text-align: center; color: #888;">Trailpack - Excel to PyST Mapper</div>',
+    '<div style="text-align: center; color: #888; font-family: \'Montserrat\', sans-serif;">Trailpack - Excel to PyST Mapper</div>',
     unsafe_allow_html=True
 )
