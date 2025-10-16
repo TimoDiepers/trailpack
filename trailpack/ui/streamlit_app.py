@@ -782,16 +782,33 @@ elif st.session_state.page == 3:
                                 # Get the definition to display
                                 concept_definition = st.session_state.concept_definitions.get(concept_cache_key)
                                 
-                                if concept_definition:
-                                    st.info(
-                                        f"**Selected:** {selected_label}\n\n"
-                                        f"**Description:** {concept_definition}\n\n"
-                                        f"[🔗 View on vocab.sentier.dev]({web_url})"
-                                    )
-                                else:
-                                    st.info(
-                                        f"**Selected:** {selected_label}\n\n[🔗 View on vocab.sentier.dev]({web_url})"
-                                    )
+                                col_info, col_clear = st.columns([4, 1])
+                                with col_info:
+                                    if concept_definition:
+                                        st.info(
+                                            f"**Selected:** {selected_label}\n\n"
+                                            f"**Description:** {concept_definition}\n\n"
+                                            f"[🔗 View on vocab.sentier.dev]({web_url})"
+                                        )
+                                    else:
+                                        st.info(
+                                            f"**Selected:** {selected_label}\n\n[🔗 View on vocab.sentier.dev]({web_url})"
+                                        )
+                                with col_clear:
+                                    if st.button("Clear", key=f"clear_{column}", help="Remove ontology selection"):
+                                        # Clear the ontology mapping
+                                        st.session_state.column_mappings.pop(column, None)
+                                        # Clear concept definition cache
+                                        st.session_state.concept_definitions.pop(concept_cache_key, None)
+                                        # Clear search field text by deleting the widget state
+                                        search_key = f"search_{column}"
+                                        if search_key in st.session_state:
+                                            del st.session_state[search_key]
+                                        # Clear all suggestions cache entries for this column
+                                        cache_keys_to_remove = [k for k in st.session_state.suggestions_cache.keys() if k.startswith(f"{column}_")]
+                                        for cache_key in cache_keys_to_remove:
+                                            st.session_state.suggestions_cache.pop(cache_key, None)
+                                        st.rerun()
 
                     # If numeric, show unit search field below ontology
                     if is_numeric:
@@ -899,28 +916,54 @@ elif st.session_state.page == 3:
                                     # Get the definition to display
                                     unit_concept_definition = st.session_state.concept_definitions.get(unit_concept_cache_key)
                                     
-                                    if unit_concept_definition:
-                                        st.info(
-                                            f"**Selected unit:** {selected_unit_label}\n\n"
-                                            f"**Description:** {unit_concept_definition}\n\n"
-                                            f"[🔗 View on vocab.sentier.dev]({web_url})"
-                                        )
-                                    else:
-                                        st.info(
-                                            f"**Selected unit:** {selected_unit_label}\n\n[🔗 View on vocab.sentier.dev]({web_url})"
-                                        )
+                                    col_unit_info, col_unit_clear = st.columns([4, 1])
+                                    with col_unit_info:
+                                        if unit_concept_definition:
+                                            st.info(
+                                                f"**Selected unit:** {selected_unit_label}\n\n"
+                                                f"**Description:** {unit_concept_definition}\n\n"
+                                                f"[🔗 View on vocab.sentier.dev]({web_url})"
+                                            )
+                                        else:
+                                            st.info(
+                                                f"**Selected unit:** {selected_unit_label}\n\n[🔗 View on vocab.sentier.dev]({web_url})"
+                                            )
+                                    with col_unit_clear:
+                                        if st.button("Clear", key=f"clear_unit_{column}", help="Remove unit selection"):
+                                            # Clear the unit mapping
+                                            st.session_state.column_mappings.pop(f"{column}_unit", None)
+                                            # Clear concept definition cache
+                                            st.session_state.concept_definitions.pop(unit_concept_cache_key, None)
+                                            # Clear unit search field text by deleting the widget state
+                                            unit_search_key = f"search_unit_{column}"
+                                            if unit_search_key in st.session_state:
+                                                del st.session_state[unit_search_key]
+                                            # Clear all unit suggestions cache entries for this column
+                                            unit_cache_keys_to_remove = [k for k in st.session_state.suggestions_cache.keys() if k.startswith(f"{column}_unit_")]
+                                            for cache_key in unit_cache_keys_to_remove:
+                                                st.session_state.suggestions_cache.pop(cache_key, None)
+                                            st.rerun()
                     
-                    # Description field - only show if no ontology or no API definition available
+                    # Description field - show for all columns but with different requirements
                     has_ontology = st.session_state.column_mappings.get(column) is not None
                     
                     # Check if we have a concept definition from the API
                     concept_cache_key = f"concept_{st.session_state.column_mappings.get(column)}" if has_ontology else None
                     concept_definition = st.session_state.concept_definitions.get(concept_cache_key) if concept_cache_key else None
                     
-                    # Only show text area when no ontology or no definition available
+                    # Show text area unless ontology has a description
                     if not (has_ontology and concept_definition):
-                        description_label = "Column Description" if has_ontology else "Column Description *"
-                        description_help = "Provide a description for this column" if has_ontology else "Required: No ontology mapping selected. Please provide a description for this column."
+                        # Determine if description is required or optional
+                        if has_ontology and not concept_definition:
+                            # Ontology selected but no API definition - description is optional
+                            description_label = "Column Description (optional)"
+                            description_help = "Optional: Add a custom description for this column. The selected ontology has no description available from the API."
+                            is_required = False
+                        else:
+                            # No ontology selected - description is required
+                            description_label = "Column Description *"
+                            description_help = "Required: No ontology mapping selected. Please provide a description for this column."
+                            is_required = True
                         
                         column_description = st.text_area(
                             description_label,
@@ -937,8 +980,8 @@ elif st.session_state.page == 3:
                         else:
                             st.session_state.column_descriptions.pop(column, None)
                         
-                        # Show warning if no ontology and no description
-                        if not has_ontology and not column_description:
+                        # Show warning only if description is required and missing
+                        if is_required and not column_description:
                             st.warning("Please provide either an ontology mapping or a description for this column.")
 
                 st.markdown("---")
@@ -965,11 +1008,13 @@ elif st.session_state.page == 3:
                 concept_cache_key = f"concept_{st.session_state.column_mappings.get(column)}" if has_ontology else None
                 has_concept_definition = bool(st.session_state.concept_definitions.get(concept_cache_key)) if concept_cache_key else False
                 
-                # Column is valid if it has: ontology with API definition OR manual description
+                # Column is valid if:
+                # 1. Has ontology with API definition (description not needed), OR
+                # 2. Has ontology without API definition (description optional per requirements), OR
+                # 3. Has no ontology but has manual description
+                # Only invalid if missing BOTH ontology AND description
                 if not has_ontology and not has_description:
-                    missing_info.append(column)
-                elif has_ontology and not has_concept_definition and not has_description:
-                    # Has ontology but no API definition and no manual description
+                    # Missing both ontology and description
                     missing_info.append(column)
             
             can_proceed = len(missing_info) == 0
