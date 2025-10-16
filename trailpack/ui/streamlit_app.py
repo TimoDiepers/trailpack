@@ -49,7 +49,7 @@ from trailpack.config import (
 
 
 ICON_PATH = Path(__file__).parent / "icon.svg"
-PAGE_ICON = str(ICON_PATH) if ICON_PATH.is_file() else "🎒"
+PAGE_ICON = str(ICON_PATH) if ICON_PATH.is_file() else "📦"
 LOGO_BASE64 = (
     base64.b64encode(ICON_PATH.read_bytes()).decode("utf-8")
     if ICON_PATH.is_file()
@@ -187,7 +187,7 @@ def render_sidebar_header():
             unsafe_allow_html=True,
         )
     else:
-        st.title("🎒 Trailpack")
+        st.title("Trailpack")
         st.markdown("### Excel to PyST Mapper")
 
 
@@ -369,44 +369,44 @@ with st.sidebar:
     # Step indicators with icons
     if st.session_state.page >= 1:
         st.markdown(
-            "✅ **1. Upload & Select Language**"
+            "**1. Upload & Select Language**"
             if st.session_state.page > 1
-            else "▶️ **1. Upload & Select Language**"
+            else "> **1. Upload & Select Language**"
         )
     else:
-        st.markdown("⬜ 1. Upload & Select Language")
+        st.markdown("1. Upload & Select Language")
 
     if st.session_state.page >= 2:
         st.markdown(
-            "✅ **2. Select Sheet**"
+            "**2. Select Sheet**"
             if st.session_state.page > 2
-            else "▶️ **2. Select Sheet**"
+            else "> **2. Select Sheet**"
         )
     else:
-        st.markdown("⬜ 2. Select Sheet")
+        st.markdown("2. Select Sheet")
 
     if st.session_state.page >= 3:
         st.markdown(
-            "✅ **3. Map Columns**"
+            "**3. Map Columns**"
             if st.session_state.page > 3
-            else "▶️ **3. Map Columns**"
+            else "> **3. Map Columns**"
         )
     else:
-        st.markdown("⬜ 3. Map Columns")
+        st.markdown("3. Map Columns")
 
     if st.session_state.page >= 4:
-        st.markdown("▶️ **4. General Details**")
+        st.markdown("> **4. General Details**")
     else:
-        st.markdown("⬜ 4. General Details")
+        st.markdown("4. General Details")
 
     st.markdown("---")
 
     # Show current file info if available
     if st.session_state.file_name:
         st.markdown("### Current File")
-        st.info(f"📄 {st.session_state.file_name}")
+        st.info(f" {st.session_state.file_name}")
         if st.session_state.selected_sheet:
-            st.info(f"📋 Sheet: {st.session_state.selected_sheet}")
+            st.info(f"****{st.session_state.selected_sheet}")
 
 
 # ===== MAIN CONTENT =====
@@ -420,7 +420,7 @@ if st.session_state.page == 1:
 
     # Show current file if already uploaded
     if st.session_state.file_name:
-        st.success(f"✅ Current file: **{st.session_state.file_name}**")
+        st.success(f"Current file: **{st.session_state.file_name}**")
         change_file = st.checkbox("Upload a different file", value=False)
     else:
         change_file = True
@@ -463,7 +463,7 @@ if st.session_state.page == 1:
         has_file = uploaded_file is not None or st.session_state.file_name is not None
 
         if has_file:
-            if st.button("Next ➡️", type="primary", use_container_width=True):
+            if st.button("Next ", type="primary", use_container_width=True):
                 # Save file only if newly uploaded
                 if uploaded_file is not None:
                     st.session_state.file_bytes = uploaded_file.getvalue()
@@ -487,7 +487,7 @@ if st.session_state.page == 1:
 
                 navigate_to(2)
         else:
-            st.button("Next ➡️", type="primary", disabled=True, use_container_width=True, help="Please upload a file first")
+            st.button("Next ", type="primary", disabled=True, use_container_width=True, help="Please upload a file first")
 
 
 # Page 2: Sheet Selection
@@ -559,15 +559,15 @@ elif st.session_state.page == 2:
     col1, col2, col3 = st.columns([1, 1, 1])
 
     with col1:
-        if st.button("⬅️ Back", use_container_width=True):
+        if st.button("Back", use_container_width=True):
             navigate_to(1)
 
     with col3:
         if st.session_state.selected_sheet:
-            if st.button("Next ➡️", type="primary", use_container_width=True):
+            if st.button("Next ", type="primary", use_container_width=True):
                 navigate_to(3)
         else:
-            st.button("Next ➡️", type="primary", disabled=True, use_container_width=True)
+            st.button("Next ", type="primary", disabled=True, use_container_width=True)
 
 
 # Page 3: Column Mapping
@@ -809,11 +809,11 @@ elif st.session_state.page == 3:
         col1, col2, col3 = st.columns([1, 1, 1])
 
         with col1:
-            if st.button("⬅️ Back", use_container_width=True):
+            if st.button("Back", use_container_width=True):
                 navigate_to(2)
 
         with col3:
-            if st.button("✅ Next ➡️", type="primary", use_container_width=True):
+            if st.button("Next ", type="primary", use_container_width=True):
                 # Generate view object internally (not displayed)
                 st.session_state.view_object = generate_view_object()
                 navigate_to(4)
@@ -846,7 +846,7 @@ elif st.session_state.page == 4:
     if package_name:
         is_valid, error_msg = schema.validate_package_name(package_name)
         if not is_valid:
-            st.error(f"❌ {error_msg}")
+            st.error(f"{error_msg}")
         else:
             st.session_state.general_details["name"] = package_name
     elif package_name == "":
@@ -895,7 +895,7 @@ elif st.session_state.page == 4:
     if version:
         is_valid, error_msg = schema.validate_version(version)
         if not is_valid:
-            st.error(f"❌ {error_msg}")
+            st.error(f"{error_msg}")
         else:
             st.session_state.general_details["version"] = version
     elif version == "":
@@ -927,18 +927,18 @@ The resource name identifies your data file in the package. It must follow speci
         # Only show the error/suggestion if not yet accepted
         if not st.session_state.resource_name_accepted:
             # Show source file and sheet info
-            st.info(f"📄 **Source:** `{file_stem}` (file) + `{st.session_state.selected_sheet}` (sheet)")
+            st.info(f" **Source:** `{file_stem}` (file) + `{st.session_state.selected_sheet}` (sheet)")
             
             # Show original combined name with validation status
             if is_valid_original:
-                st.success(f"✅ **Combined name is valid:** `{original_name}`")
+                st.success(f"**Combined name is valid:** `{original_name}`")
                 # If valid and not set, use it
                 if not st.session_state.resource_name:
                     st.session_state.resource_name = original_name
                     st.session_state.resource_name_accepted = True
             else:
                 # Show the problem prominently
-                st.error(f"❌ **Combined name has issues:** `{original_name}`")
+                st.error(f"**Combined name has issues:** `{original_name}`")
                 
                 st.warning("""
 **Issues found:**
@@ -949,12 +949,12 @@ The resource name identifies your data file in the package. It must follow speci
                 
                 # Check if we're in edit mode or display mode
                 if not st.session_state.resource_name_editing:
-                    # Display mode: show suggestion with Accept/Edit buttons
+                    # Display mode: show suggestion with Accept/buttons
                     st.markdown(f"**Suggested sanitized name:** `{suggested_name}`")
                     
                     col1, col2, col3 = st.columns([1, 1, 2])
                     with col1:
-                        if st.button("✅ Accept", use_container_width=True, type="primary", key="btn_accept_suggestion"):
+                        if st.button("Accept", use_container_width=True, type="primary", key="btn_accept_suggestion"):
                             st.session_state.resource_name = suggested_name
                             st.session_state.resource_name_confirmed = True
                             st.session_state.resource_name_accepted = True
@@ -962,17 +962,17 @@ The resource name identifies your data file in the package. It must follow speci
                             st.session_state.general_details["resource_name"] = suggested_name
                             st.rerun()
                     with col2:
-                        if st.button("✏️ Edit", use_container_width=True, key="btn_edit_suggestion"):
+                        if st.button("Edit", use_container_width=True, key="btn_edit_suggestion"):
                             st.session_state.resource_name = suggested_name
                             st.session_state.resource_name_editing = True
                             st.rerun()
                 else:
-                    # Edit mode: show text input with validation
+                    # mode: show text input with validation
                     resource_name_edit = st.text_input(
-                        "Edit Resource Name",
+                        "Resource Name",
                         value=st.session_state.resource_name or suggested_name,
                         placeholder="my-data-resource",
-                        help="Edit the resource name. Must contain only lowercase letters, numbers, hyphens, underscores, and dots.",
+                        help="the resource name. Must contain only lowercase letters, numbers, hyphens, underscores, and dots.",
                         key="resource_name_edit_suggestion"
                     )
                     
@@ -980,15 +980,15 @@ The resource name identifies your data file in the package. It must follow speci
                         is_valid_edit, _, suggestion_edit = validator.validate_and_sanitize_resource_name(resource_name_edit)
                         
                         if is_valid_edit:
-                            st.success(f"✅ **`{resource_name_edit}`** is valid!")
+                            st.success(f"**`{resource_name_edit}`** is valid!")
                         else:
-                            st.error(f"❌ **`{resource_name_edit}`** contains invalid characters.")
+                            st.error(f"**`{resource_name_edit}`** contains invalid characters.")
                             st.markdown(f"**Suggested fix:** `{suggestion_edit}`")
                         
                         # Show buttons for editing
                         col1, col2, col3 = st.columns([1, 1, 2])
                         with col1:
-                            if st.button("✅ Accept", use_container_width=True, type="primary", key="btn_accept_edit", disabled=not is_valid_edit):
+                            if st.button("Accept", use_container_width=True, type="primary", key="btn_accept_edit", disabled=not is_valid_edit):
                                 st.session_state.resource_name = resource_name_edit
                                 st.session_state.resource_name_confirmed = True
                                 st.session_state.resource_name_accepted = True
@@ -996,7 +996,7 @@ The resource name identifies your data file in the package. It must follow speci
                                 st.session_state.general_details["resource_name"] = resource_name_edit
                                 st.rerun()
                         with col2:
-                            if st.button("↩️ Cancel", use_container_width=True, key="btn_cancel_edit"):
+                            if st.button("Cancel", use_container_width=True, key="btn_cancel_edit"):
                                 st.session_state.resource_name_editing = False
                                 st.rerun()
     
@@ -1007,8 +1007,8 @@ The resource name identifies your data file in the package. It must follow speci
         
         # If accepted, show as info with option to edit
         if st.session_state.resource_name_accepted and st.session_state.resource_name_confirmed:
-            st.success(f"✅ **Resource name:** `{st.session_state.resource_name}`")
-            if st.button("✏️ Edit Resource Name", key="btn_edit_resource_name"):
+            st.success(f"**Resource name:** `{st.session_state.resource_name}`")
+            if st.button("Resource Name", key="btn_edit_resource_name"):
                 st.session_state.resource_name_accepted = False
                 st.session_state.resource_name_editing = False  # Reset editing flag
                 st.rerun()
@@ -1027,18 +1027,18 @@ The resource name identifies your data file in the package. It must follow speci
                 is_valid_input, _, suggestion = validator.validate_and_sanitize_resource_name(resource_name_input)
                 
                 if is_valid_input:
-                    st.success(f"✅ **`{resource_name_input}`** is a valid resource name!")
+                    st.success(f"**`{resource_name_input}`** is a valid resource name!")
                     # Show accept button for valid name
                     col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 2])
                     with col_btn1:
-                        if st.button("✅ Accept", use_container_width=True, type="primary", key="btn_accept_manual"):
+                        if st.button("Accept", use_container_width=True, type="primary", key="btn_accept_manual"):
                             st.session_state.resource_name = resource_name_input
                             st.session_state.resource_name_confirmed = True
                             st.session_state.resource_name_accepted = True
                             st.session_state.general_details["resource_name"] = resource_name_input
                             st.rerun()
                     with col_btn2:
-                        if st.button("🔄 Reset", help="Reset to sanitized filename + sheet", use_container_width=True, key="btn_reset"):
+                        if st.button("Reset", help="Reset to sanitized filename + sheet", use_container_width=True, key="btn_reset"):
                             if st.session_state.file_name and st.session_state.selected_sheet:
                                 file_stem = Path(st.session_state.file_name).stem
                                 sheet_name = st.session_state.selected_sheet.replace(' ', '_')
@@ -1047,20 +1047,20 @@ The resource name identifies your data file in the package. It must follow speci
                                 st.session_state.resource_name_accepted = False
                                 st.rerun()
                 else:
-                    st.error(f"❌ **`{resource_name_input}`** contains invalid characters.")
+                    st.error(f"**`{resource_name_input}`** contains invalid characters.")
                     st.markdown(f"**Suggested fix:** `{suggestion}`")
                     
                     # Show buttons for invalid name
                     col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 2])
                     with col_btn1:
-                        if st.button("✅ Use Suggestion", use_container_width=True, type="primary", key="btn_use_suggestion"):
+                        if st.button("Use Suggestion", use_container_width=True, type="primary", key="btn_use_suggestion"):
                             st.session_state.resource_name = suggestion
                             st.session_state.resource_name_accepted = True
                             st.session_state.resource_name_confirmed = True
                             st.session_state.general_details["resource_name"] = suggestion
                             st.rerun()
                     with col_btn2:
-                        if st.button("🔄 Reset", help="Reset to sanitized filename + sheet", use_container_width=True, key="btn_reset_invalid"):
+                        if st.button("Reset", help="Reset to sanitized filename + sheet", use_container_width=True, key="btn_reset_invalid"):
                             if st.session_state.file_name and st.session_state.selected_sheet:
                                 file_stem = Path(st.session_state.file_name).stem
                                 sheet_name = st.session_state.selected_sheet.replace(' ', '_')
@@ -1130,7 +1130,7 @@ The resource name identifies your data file in the package. It must follow speci
     if homepage:
         is_valid, error_msg = schema.validate_url(homepage)
         if not is_valid:
-            st.error(f"❌ {error_msg}")
+            st.error(f"{error_msg}")
         else:
             st.session_state.general_details["homepage"] = homepage
     elif homepage == "":
@@ -1150,7 +1150,7 @@ The resource name identifies your data file in the package. It must follow speci
     if repository:
         is_valid, error_msg = schema.validate_url(repository)
         if not is_valid:
-            st.error(f"❌ {error_msg}")
+            st.error(f"{error_msg}")
         else:
             st.session_state.general_details["repository"] = repository
     elif repository == "":
@@ -1382,7 +1382,7 @@ The resource name identifies your data file in the package. It must follow speci
     col1, col2, col3 = st.columns([1, 1, 1])
 
     with col1:
-        if st.button("⬅️ Back", use_container_width=True):
+        if st.button("Back", use_container_width=True):
             navigate_to(3)
 
     with col3:
@@ -1427,23 +1427,23 @@ The resource name identifies your data file in the package. It must follow speci
             all_valid = all_valid and is_valid
 
         if has_required_fields and all_valid:
-            if st.button("✅ Finish", type="primary", use_container_width=True):
+            if st.button("Finish", type="primary", use_container_width=True):
                 st.session_state.export_ready = True
         else:
             st.button(
-                "✅ Finish", type="primary", disabled=True, use_container_width=True
+                "Finish", type="primary", disabled=True, use_container_width=True
             )
             if not has_required_fields:
                 st.warning(
-                    f"⚠️ Please fill in the required fields: {', '.join(missing_fields)}"
+                    f"Please fill in the required fields: {', '.join(missing_fields)}"
                 )
             elif not all_valid:
-                st.warning("⚠️ Please fix validation errors in the form")
+                st.warning("Please fix validation errors in the form")
 
     # Export section - appears below the form after "Finish" is clicked
     if st.session_state.get("export_ready", False):
         st.markdown("---")
-        st.success("✅ All information collected successfully!")
+        st.success("All information collected successfully!")
 
         st.markdown("### Export Data Package")
         export_name = st.text_input(
@@ -1485,7 +1485,7 @@ The resource name identifies your data file in the package. It must follow speci
                         st.session_state.export_complete = True
 
                 except Exception as e:
-                    st.error(f"❌ Export failed: {e}")
+                    st.error(f"Export failed: {e}")
                     st.session_state.export_complete = False
 
         # Display export results - fills all space below
@@ -1508,7 +1508,7 @@ The resource name identifies your data file in the package. It must follow speci
             st.dataframe(exported_df.head(10), use_container_width=True)
 
             # Display metadata in JSON format
-            st.markdown("### 📋 Embedded Metadata")
+            st.markdown("### **Embedded Metadata")
             st.json(exported_metadata)
 
             # Offer download
