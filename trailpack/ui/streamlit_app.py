@@ -71,14 +71,17 @@ def iri_to_web_url(iri: str, language: str = "en") -> str:
         'https://vocab.sentier.dev/web/concept/https%3A%2F%2Fvocab.sentier.dev%2FGeonames%2FA?concept_scheme=https%3A%2F%2Fvocab.sentier.dev%2FGeonames&language=en'
     """
     # Extract the concept scheme from the IRI
-    # For "https://vocab.sentier.dev/namespace/type/term", scheme is "https://vocab.sentier.dev/namespace/"
+    # For IRIs like "https://vocab.sentier.dev/{namespace}/{concept}", 
+    # the scheme is "https://vocab.sentier.dev/{namespace}/"
+    # For IRIs like "https://vocab.sentier.dev/{namespace}/{type}/{term}",
+    # the scheme is still "https://vocab.sentier.dev/{namespace}/"
     parts = iri.split('/')
     if len(parts) >= 5 and parts[2] == 'vocab.sentier.dev':
-        # Scheme is base_url + namespace + trailing slash
+        # Scheme is base_url + namespace (first path segment) + trailing slash
         concept_scheme = '/'.join(parts[:4]) + '/'
     else:
-        # Fallback: just use the IRI as-is
-        concept_scheme = iri
+        # Fallback: use base URL as concept scheme for non-standard IRIs
+        concept_scheme = '/'.join(parts[:3]) + '/' if len(parts) >= 3 else iri
     
     # URL encode the IRI and concept scheme
     encoded_iri = quote(iri, safe='')
