@@ -20,10 +20,20 @@ requirements:
                 - python
                 - setuptools
         run:
-                - python >=3.9
+                - python >=3.11
+                - pyst-client
+                - langcodes
+                - httpx
+                - openpyxl
+                - pandas
+                - numpy
+                - streamlit
+                - python-dotenv
+                - pydantic
+
 
 about:
-        home: https://github.com/TimoDiepers/trailpaack
+        home: https://github.com/TimoDiepers/trailpack
         license: MIT
         license_file: LICENSE
 

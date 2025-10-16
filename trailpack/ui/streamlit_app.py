@@ -63,6 +63,21 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Custom CSS for consistent typography
+st.markdown("""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap');
+
+    /* Apply Montserrat to all text */
+    html, body, [class*="css"], [class*="st-"],
+    h1, h2, h3, h4, h5, h6, p, span, div, label, button, input, textarea, select,
+    .stMarkdown, .stText, .stButton, .stTextInput, .stSelectbox, .stTextArea,
+    .stRadio, .stCheckbox, .stMetric, .stDataFrame, .stCaption {
+        font-family: 'Montserrat', sans-serif !important;
+    }
+
+    </style>
+""", unsafe_allow_html=True)
 
 # Initialize session state
 if "page" not in st.session_state:
@@ -533,7 +548,14 @@ elif st.session_state.page == 3:
 
                                 # Store selection
                                 selected_idx = options.index(selected)
-                                st.session_state.column_mappings[column] = option_ids[selected_idx]
+                                selected_id = option_ids[selected_idx]
+                                selected_label = options[selected_idx]
+                                st.session_state.column_mappings[column] = selected_id
+
+                                # Display selected concept with clickable link
+                                st.info(
+                                    f"**Selected:** {selected_label}\n\n[🔗 {selected_id}]({selected_id})"
+                                )
 
                     # If numeric, show unit search field below ontology
                     if is_numeric:
@@ -589,7 +611,14 @@ elif st.session_state.page == 3:
 
                                     # Store unit selection
                                     selected_idx = options.index(selected)
-                                    st.session_state.column_mappings[f"{column}_unit"] = option_ids[selected_idx]
+                                    selected_unit_id = option_ids[selected_idx]
+                                    selected_unit_label = options[selected_idx]
+                                    st.session_state.column_mappings[f"{column}_unit"] = selected_unit_id
+
+                                    # Display selected unit with clickable link
+                                    st.info(
+                                        f"**Selected unit:** {selected_unit_label}\n\n[🔗 {selected_unit_id}]({selected_unit_id})"
+                                    )
 
                 st.markdown("---")
         
