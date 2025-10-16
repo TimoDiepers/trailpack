@@ -79,12 +79,11 @@ st.markdown("""
     
     /* Ensure Material Icons elements use the correct font */
     span[data-testid*="stIcon"],
-    span[data-testid*="Icon"],
     button span[class*="material"],
     [class*="material-icons"],
     [data-testid*="collapsedControl"] span,
-    [data-testid*="baseButton"] span[role="img"] {
-        font-family: 'Material Symbols Outlined', 'Material Icons' !important;
+    [data-testid="baseButton-header"] span {
+        font-family: 'Material Symbols Outlined' !important;
     }
 
     </style>
