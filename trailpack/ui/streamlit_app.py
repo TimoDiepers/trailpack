@@ -87,7 +87,7 @@ def iri_to_web_url(iri: str, language: str = "en") -> str:
     # URL encode the IRI and concept scheme
     # For IRI: only encode the colon after protocol (https:), keep slashes unencoded
     # The vocab.sentier.dev API expects: https%3A//vocab.sentier.dev/...
-    encoded_iri = iri.replace(":", "%3A", 1)  # Replace only first colon
+    encoded_iri = iri.replace("https:", "https%3A", 1)  # Replace protocol colon specifically
     # For concept_scheme: encode everything including slashes
     encoded_scheme = quote(concept_scheme, safe="")
 
