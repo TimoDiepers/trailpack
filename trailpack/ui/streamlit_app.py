@@ -162,6 +162,8 @@ if "resource_name" not in st.session_state:
     st.session_state.resource_name = None
 if "resource_name_confirmed" not in st.session_state:
     st.session_state.resource_name_confirmed = False
+if "resource_name_accepted" not in st.session_state:
+    st.session_state.resource_name_accepted = False
 
 
 def render_sidebar_header():
@@ -909,69 +911,103 @@ The resource name identifies your data file in the package. It must follow speci
 **Example:** `solar-panel-data`, `emissions_2024`, `my.dataset.v1`
     """)
     
-    # Generate initial resource name from file name if not set
-    if st.session_state.file_name and not st.session_state.resource_name:
-        validator = StandardValidator()
-        original_name = Path(st.session_state.file_name).stem
-        st.session_state.resource_name = validator.sanitize_resource_name(original_name)
+    # Initialize validator
+    validator = StandardValidator()
     
-    # Show original filename context
+    # Get original filename and check validity
     if st.session_state.file_name:
-        st.info(f"📄 **Source file:** `{Path(st.session_state.file_name).stem}`")
-        
-        # Initialize validator for name checking
-        validator = StandardValidator()
         original_name = Path(st.session_state.file_name).stem
+        is_valid_original, _, suggested_name = validator.validate_and_sanitize_resource_name(original_name)
         
-        # Check if original name is valid
-        is_valid, _, suggested_name = validator.validate_and_sanitize_resource_name(original_name)
+        # Only show the error/suggestion if not yet accepted
+        if not st.session_state.resource_name_accepted:
+            # Show original filename with validation status
+            if is_valid_original:
+                st.info(f"📄 **Source filename:** `{original_name}` ✅ (valid)")
+                # If valid and not set, use it
+                if not st.session_state.resource_name:
+                    st.session_state.resource_name = original_name
+                    st.session_state.resource_name_accepted = True
+            else:
+                # Show the problem prominently
+                st.error(f"❌ **Source filename has issues:** `{original_name}`")
+                
+                col1, col2 = st.columns([2, 1])
+                with col1:
+                    st.markdown(f"**Suggested sanitized name:** `{suggested_name}`")
+                with col2:
+                    if st.button("✅ Accept Suggestion", use_container_width=True, type="primary", key="btn_accept_suggestion"):
+                        st.session_state.resource_name = suggested_name
+                        st.session_state.resource_name_confirmed = True
+                        st.session_state.resource_name_accepted = True
+                        st.session_state.general_details["resource_name"] = suggested_name
+                        st.rerun()
+                
+                st.warning("""
+**Issues found:**
+- Uppercase letters → converted to lowercase
+- Spaces → replaced with underscores
+- Special characters → removed
+                """)
+    
+    # Show resource name input (either already accepted or for manual editing)
+    # Only show input section if name has been accepted or is being manually entered
+    if st.session_state.resource_name_accepted or st.session_state.resource_name:
+        st.markdown("---")
         
-        if not is_valid:
-            st.warning(
-                f"⚠️  The filename contains invalid characters. "
-                f"Suggested sanitized name: **`{suggested_name}`**"
-            )
-    
-    # Resource name input with real-time validation
-    col_name1, col_name2 = st.columns([3, 1])
-    
-    with col_name1:
-        resource_name_input = st.text_input(
-            "Resource Name *",
-            value=st.session_state.resource_name or "",
-            placeholder="my-data-resource",
-            help="Enter a name for this data resource. Must follow the naming rules above. (Required)",
-            key="resource_name_input_meta"
-        )
-    
-    with col_name2:
-        if st.button("🔄 Auto-clean", help="Automatically sanitize the resource name", use_container_width=True, key="btn_sanitize"):
-            if st.session_state.file_name:
-                validator = StandardValidator()
-                original_name = Path(st.session_state.file_name).stem
-                st.session_state.resource_name = validator.sanitize_resource_name(original_name)
+        # If accepted, show as info with option to edit
+        if st.session_state.resource_name_accepted and st.session_state.resource_name_confirmed:
+            st.success(f"✅ **Resource name:** `{st.session_state.resource_name}`")
+            if st.button("✏️ Edit Resource Name", key="btn_edit_resource_name"):
+                st.session_state.resource_name_accepted = False
                 st.rerun()
-    
-    # Validate the entered name
-    if resource_name_input:
-        validator = StandardValidator()
-        is_valid_input, _, suggestion = validator.validate_and_sanitize_resource_name(resource_name_input)
-        
-        if is_valid_input:
-            st.success(f"✅ **`{resource_name_input}`** is a valid resource name!")
-            st.session_state.resource_name = resource_name_input
-            st.session_state.resource_name_confirmed = True
-            st.session_state.general_details["resource_name"] = resource_name_input
         else:
-            st.error(
-                f"❌ **`{resource_name_input}`** contains invalid characters. "
-                f"Suggested: **`{suggestion}`**"
-            )
-            st.session_state.resource_name_confirmed = False
-            st.session_state.general_details.pop("resource_name", None)
-    else:
-        st.session_state.resource_name_confirmed = False
-        st.session_state.general_details.pop("resource_name", None)
+            # Resource name input with real-time validation
+            col_name1, col_name2 = st.columns([3, 1])
+            
+            with col_name1:
+                resource_name_input = st.text_input(
+                    "Resource Name *",
+                    value=st.session_state.resource_name or "",
+                    placeholder="my-data-resource",
+                    help="Enter or edit the resource name. Must follow the naming rules above. (Required)",
+                    key="resource_name_input_meta"
+                )
+            
+            with col_name2:
+                if st.button("🔄 Reset", help="Reset to sanitized filename", use_container_width=True, key="btn_reset"):
+                    if st.session_state.file_name:
+                        original_name = Path(st.session_state.file_name).stem
+                        st.session_state.resource_name = validator.sanitize_resource_name(original_name)
+                        st.session_state.resource_name_accepted = False
+                        st.rerun()
+            
+            # Validate the entered/edited name
+            if resource_name_input:
+                is_valid_input, _, suggestion = validator.validate_and_sanitize_resource_name(resource_name_input)
+                
+                if is_valid_input:
+                    st.success(f"✅ **`{resource_name_input}`** is a valid resource name!")
+                    st.session_state.resource_name = resource_name_input
+                    st.session_state.resource_name_confirmed = True
+                    st.session_state.resource_name_accepted = True
+                    st.session_state.general_details["resource_name"] = resource_name_input
+                else:
+                    st.error(
+                        f"❌ **`{resource_name_input}`** contains invalid characters."
+                    )
+                    st.markdown(f"**Suggested fix:** `{suggestion}`")
+                    if st.button("✅ Use Suggestion", key="btn_use_suggestion"):
+                        st.session_state.resource_name = suggestion
+                        st.session_state.resource_name_accepted = True
+                        st.session_state.resource_name_confirmed = True
+                        st.session_state.general_details["resource_name"] = suggestion
+                        st.rerun()
+                    st.session_state.resource_name_confirmed = False
+                    st.session_state.general_details.pop("resource_name", None)
+            else:
+                st.session_state.resource_name_confirmed = False
+                st.session_state.general_details.pop("resource_name", None)
 
     st.markdown("### Additional Information")
 
