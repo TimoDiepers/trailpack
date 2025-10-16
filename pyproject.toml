@@ -37,12 +37,17 @@ dependencies = [
     "polars>=0.20.0",
     "pyarrow>=14.0.0",
     "python-dotenv",
+    "typer>=0.9.0",
+    "rich>=13.0.0",
 ]
 
 [project.urls]
 source = "https://github.com/TimoDiepers/trailpaack"
 homepage = "https://github.com/TimoDiepers/trailpaack"
 tracker = "https://github.com/TimoDiepers/trailpaack/issues"
+
+[project.scripts]
+trailpack = "trailpack.cli:app"
 
 [project.optional-dependencies]
 # Getting recursive dependencies to work is a pain, this

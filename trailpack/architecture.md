@@ -76,47 +76,122 @@ Simplified Architecture: Local-First Data Quality Tool
 
   CLI Interface:
 
-  # Install
+  # Install (development mode)
+  pip install -e .
+
+  # Or install from PyPI (when published)
   pip install trailpack
 
-  # Start UI (existing Streamlit)
+  # 1. Start UI (launches Streamlit)
   trailpack ui
-  # → Opens browser at localhost:8501
+  # → Opens browser at http://localhost:8501
+  # → Use custom port: trailpack ui --port 8080
 
-  # CLI mode (for power users)
-  trailpack process \
-    --data inventory.xlsx \
-    --sheet "Sheet1" \
-    --mapping mapping.json \
-    --metadata metadata.json \
-    --output clean-data.parquet
-
-  # Validate only (dry-run)
-  trailpack validate \
-    --data inventory.xlsx \
-    --mapping mapping.json \
-    --metadata metadata.json
-
-  # Create config template from UI session
-  trailpack export-config \
-    --session-id abc123 \
-    --output ./configs/
-
-  # Initialize new project
+  # 2. Initialize new project (creates directory structure)
   trailpack init my-dataset
   # Creates:
   #   my-dataset/
-  #   ├── data/
-  #   ├── configs/
-  #   └── README.md
+  #   ├── data/               (place your raw files here)
+  #   ├── configs/            (stores mapping & metadata configs)
+  #   │   ├── example_mapping_config.json
+  #   │   └── example_metadata_config.json
+  #   ├── output/             (generated Parquet files)
+  #   ├── README.md           (complete documentation)
+  #   └── .gitignore
 
-  # Check standard compliance
-  trailpack check my-dataset.parquet
+  # 3. CLI mode - Full processing pipeline
+  trailpack process \
+    --data data/inventory.xlsx \
+    --sheet "Sheet1" \
+    --mapping configs/mapping_config.json \
+    --metadata configs/metadata_config.json \
+    --output output/clean-data.parquet
+
+  # Output shows:
+  #   Loading configurations...
+  #   Reading data file with SmartDataReader...
+  #     Engine: polars
+  #     Estimated memory: 45.2 MB
+  #     Loaded 10000 rows, 25 columns
+  #   Applying 15 column mappings...
+  #   Creating data package...
+  #   ✓ Data package created: output/clean-data.parquet
+  #     Quality Level: STANDARD
+  #     Warnings: 2
+  #   ✓ Process completed successfully
+
+  # 4. Validate only (dry-run, no output file)
+  trailpack validate \
+    --data data/inventory.xlsx \
+    --sheet "Sheet1" \
+    --mapping configs/mapping_config.json \
+    --metadata configs/metadata_config.json
+
+  # Output shows detailed validation report:
+  #   ============================================================
+  #   Validation Results
+  #   ============================================================
+  #
+  #   Quality Level: STANDARD
+  #
+  #   ✓ No errors
+  #
+  #   Warnings (2):
+  #     ⚠ Column 'price' has 5 null values (0.05%)
+  #     ⚠ Recommended field 'keywords' is missing
+  #
+  #   Info (3):
+  #     ℹ 10000 rows validated
+  #     ℹ 25 columns mapped
+  #     ℹ 15 ontology terms used
+  #
+  #   ✓ Validation passed - ready for export
+
+  # 5. Check existing Parquet file
+  trailpack check output/clean-data.parquet
+
   # Output:
-  #   ✓ Metadata complete
-  #   ✓ All columns mapped
-  #   ✓ Data quality passed
-  #   → Quality Level: GOLD ⭐
+  #   ============================================================
+  #   Validation Results
+  #   ============================================================
+  #
+  #   File: output/clean-data.parquet
+  #   Size: 12.45 MB
+  #   Rows: 10000, Columns: 25
+  #
+  #   Quality Level: STANDARD
+  #
+  #   ✓ No errors
+  #   ✓ No warnings
+  #
+  #   ✓ File meets Trailpack standards
+
+  # Workflow Example (Complete Process):
+
+  # Step 1: Initialize project
+  trailpack init my-inventory
+
+  # Step 2: Add your data
+  cp ~/Downloads/inventory.xlsx my-inventory/data/
+
+  # Step 3: Create configs interactively
+  cd my-inventory
+  trailpack ui
+  # → Map columns in browser
+  # → Download configs to configs/ folder
+
+  # Step 4: Process with CLI (reproducible)
+  trailpack process \
+    --data data/inventory.xlsx \
+    --mapping configs/my-inventory_mapping_config.json \
+    --metadata configs/my-inventory_metadata_config.json \
+    --output output/clean-inventory.parquet
+
+  # Step 5: Verify output
+  trailpack check output/clean-inventory.parquet
+
+  # Step 6: Submit to repository
+  # → Upload clean-inventory.parquet to Open Databank / Zenodo / etc.
 
 ⏺ Installation Options (Zero Friction):
 
@@ -185,7 +260,7 @@ Simplified Architecture: Local-First Data Quality Tool
   | StandardValidator | Validate against rules       | [x] Implemented   |
   | SmartDataReader   | Adaptive file reading        | [x] Implemented   |
   | Config Export     | Save mapping templates       | [x] Implemented   |
-  | CLI               | Power user interface         | [ ] Need to add   |
+  | CLI               | Power user interface         | [x] Implemented   |
 
 ⏺ Final Architecture: Open Source Data Quality Tool
 
@@ -245,7 +320,8 @@ Simplified Architecture: Local-First Data Quality Tool
   | [x] StandardValidator       | Implemented  | Done     |
   | [x] SmartDataReader         | Implemented  | Done     |
   | [x] Config export (JSON)    | Implemented  | Done     |
-  | [ ] CLI interface           | Missing      | Medium   |
+  | [x] CLI interface           | Implemented  | Done     |
+  | [x] Config loader           | Implemented  | Done     |
   | [ ] Desktop app packaging   | Missing      | Low      |
   | [ ] Config templates library| Missing      | Low      |
 
@@ -271,11 +347,19 @@ Simplified Architecture: Local-First Data Quality Tool
      - [x] Generates standardized filenames
      - [x] Only available after successful validation
 
-  4. [ ] Add CLI (Nice to have)
+  4. [x] Add CLI - DONE (652 lines implemented)
+     - [x] Created cli.py with typer and rich
+     - [x] Created config_loader.py (load JSON configs, 234 lines)
+     - [x] Implemented all 5 commands:
+       - trailpack ui - Launch Streamlit UI
+       - trailpack process - Full processing pipeline
+       - trailpack validate - Dry-run validation
+       - trailpack check - Verify Parquet files
+       - trailpack init - Initialize project structure
+     - [x] Added CLI entry point to pyproject.toml
+     - [x] All commands fully functional with error handling
 
-  trailpack process --data file.xlsx --config mapping.json
-
-  5. [ ] Package for Distribution (Polish)
+  5. [ ] Package for Distribution (Polish - Optional)
 
   # PyPI
   pip install trailpack
@@ -515,7 +599,7 @@ Simplified Architecture: Local-First Data Quality Tool
 ### Completed Components
 - [x] Streamlit UI (4-page workflow: upload → sheet selection → column mapping → metadata)
 - [x] PyST API integration (ontology and unit suggestions, event loop handling for Streamlit)
-- [x] Excel/CSV reading (via pandas, ready for SmartDataReader upgrade)
+- [x] Excel/CSV reading (via pandas, upgraded with SmartDataReader)
 - [x] SmartDataReader (adaptive file reading with pandas/polars/pyarrow, 191 lines)
 - [x] DataPackageExporter (builds Frictionless metadata, returns validation results)
 - [x] Packing service (writes Parquet with embedded metadata)
@@ -523,14 +607,17 @@ Simplified Architecture: Local-First Data Quality Tool
 - [x] Data quality validation (mixed types, nulls, duplicates)
 - [x] Validation report generation and download (detailed text report with all metrics)
 - [x] Config export (download mapping + metadata JSON configs, 184 lines)
+- [x] Config loader (load JSON configs for CLI, 234 lines)
+- [x] CLI interface (5 commands: ui, process, validate, check, init - 652 lines)
+- [x] CLI entry points (trailpack command available after pip install)
 
 ### In Progress
-None
+None - Core functionality complete!
 
-### Priority Next Steps
-1. **MEDIUM**: CLI interface (trailpack ui, process, validate commands)
-2. **LOW**: Config templates (example configs for common dataset types)
-3. **LOW**: Desktop packaging
+### Optional Next Steps (Low Priority)
+1. **LOW**: Config templates library (example configs for common dataset types)
+2. **LOW**: Desktop app packaging (PyInstaller for standalone .exe)
+3. **LOW**: Integration tests (end-to-end workflow tests)
 
 ### Files to Test
 - `tests/test_smart_reader.py` (place unit tests here)
