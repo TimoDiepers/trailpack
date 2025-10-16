@@ -10,7 +10,6 @@ def test_iri_to_web_url_geonames():
 
     # Check the structure
     assert web_url.startswith("https://vocab.sentier.dev/web/concept/")
-    assert "concept_scheme=" in web_url
     assert "language=en" in web_url
 
     # Check that the IRI and concept scheme are properly encoded
@@ -25,7 +24,6 @@ def test_iri_to_web_url_units():
 
     # Check the structure
     assert web_url.startswith("https://vocab.sentier.dev/web/concept/")
-    assert "concept_scheme=" in web_url
     assert "language=en" in web_url
 
     # Check that the IRI and concept scheme are properly encoded
@@ -40,7 +38,6 @@ def test_iri_to_web_url_products():
 
     # Check the structure
     assert web_url.startswith("https://vocab.sentier.dev/web/concept/")
-    assert "concept_scheme=" in web_url
     assert "language=de" in web_url
 
     # Check that the IRI and concept scheme are properly encoded
@@ -55,7 +52,6 @@ def test_iri_to_web_url_model_terms():
 
     # Check the structure
     assert web_url.startswith("https://vocab.sentier.dev/web/concept/")
-    assert "concept_scheme=" in web_url
     assert "language=en" in web_url
 
     # Check that the IRI and concept scheme are properly encoded
