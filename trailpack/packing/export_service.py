@@ -5,6 +5,7 @@ Export service for converting UI data to Frictionless Data Package in Parquet.
 from typing import Any, Dict, List, Tuple, Optional
 from pathlib import Path
 import pandas as pd
+import re
 
 from trailpack.packing.datapackage_schema import (
     Field,
@@ -70,6 +71,42 @@ class DataPackageExporter:
 
         return len(errors) == 0, errors
 
+    def _sanitize_resource_name(self, name: str) -> str:
+        """
+        Sanitize resource name to match the pattern ^[a-z0-9\\-_\\.]+$.
+        
+        The resource name must only contain:
+        - Lowercase letters (a-z)
+        - Numbers (0-9)
+        - Hyphens (-)
+        - Underscores (_)
+        - Dots (.)
+        
+        Args:
+            name: Raw name string to sanitize
+            
+        Returns:
+            Sanitized name matching the required pattern
+        """
+        # Convert to lowercase
+        name = name.lower()
+        
+        # Replace spaces with underscores
+        name = name.replace(' ', '_')
+        
+        # Remove or replace invalid characters
+        # Keep only lowercase letters, numbers, hyphens, underscores, and dots
+        name = re.sub(r'[^a-z0-9\-_.]', '', name)
+        
+        # Ensure name doesn't start or end with dots
+        name = name.strip('.')
+        
+        # Ensure name is not empty after sanitization
+        if not name:
+            name = "resource"
+        
+        return name
+
     def build_fields(self) -> List[Field]:
         """Convert column mappings to Field definitions."""
         fields = []
@@ -116,10 +153,8 @@ class DataPackageExporter:
 
     def build_resource(self, fields: List[Field]) -> Resource:
         """Create Resource definition with fields."""
-        resource_name = (
-            f"{Path(self.file_name).stem}_{self.sheet_name.replace(' ', '_')}"
-            .lower()
-            .replace(" ", "_")
+        resource_name = self._sanitize_resource_name(
+            f"{Path(self.file_name).stem}_{self.sheet_name}"
         )
 
         return Resource(
