@@ -35,13 +35,7 @@ Trailpack includes a Streamlit-based web UI for mapping Excel columns to PyST co
 
 ```bash
 # Run the UI
-streamlit run trailpack/ui/streamlit_app.py
-```
-
-Or using the run script:
-
-```bash
-python trailpack/ui/run_streamlit.py
+trailpack ui
 ```
 
 The UI provides a step-by-step workflow with smooth transitions:
