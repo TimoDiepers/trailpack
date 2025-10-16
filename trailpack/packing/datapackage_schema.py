@@ -256,9 +256,10 @@ class Resource(BaseModel):
         for key, value in optional_fields.items():
             if value:
                 result[key] = value
-                
-        if self.encoding != "utf-8":
-            result["encoding"] = self.encoding
+        
+        # Always include encoding field (recommended in Trailpack standard v1.0.0)
+        # See: trailpack/validation/standards/v1.0.0.yaml - resources.recommended.encoding
+        result["encoding"] = self.encoding
 
         if self.fields:
             schema: Dict[str, Any] = {"fields": [field.to_dict() for field in self.fields]}
