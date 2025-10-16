@@ -1592,70 +1592,67 @@ The resource name identifies your data file in the package. It must follow speci
             all_valid = all_valid and is_valid
 
         if has_required_fields and all_valid:
-            if st.button("Next ", type="primary", use_container_width=True):
-                navigate_to(5)
-        else:
-            st.button(
-                "Next ", type="primary", disabled=True, use_container_width=True
+            # Export section on page 4
+            st.markdown("---")
+            st.markdown("### Export Data Package")
+            export_name = st.text_input(
+                "Export file name",
+                value=f"{st.session_state.general_details['name']}.parquet",
+                help="Name for the exported Parquet file",
+                key="export_filename",
             )
-            if not has_required_fields:
-                st.warning(
-                    f"Please fill in the required fields: {', '.join(missing_fields)}"
-                )
-            elif not all_valid:
-                st.warning("Please fix validation errors in the form")
+
+            if st.button(
+                "📦 Generate Parquet File", type="primary", use_container_width=True
+            ):
+                with st.spinner("Building data package..."):
+                    try:
+                        from trailpack.packing.export_service import DataPackageExporter
+                        from trailpack.packing.packing import read_parquet
+
+                        exporter = DataPackageExporter(
+                            df=st.session_state.df,
+                            column_mappings=st.session_state.column_mappings,
+                            general_details=st.session_state.general_details,
+                            sheet_name=st.session_state.selected_sheet,
+                            file_name=st.session_state.file_name,
+                            suggestions_cache=st.session_state.suggestions_cache,
+                        )
+
+                        with tempfile.NamedTemporaryFile(
+                            delete=False, suffix=".parquet"
+                        ) as tmp:
+                            output_path, quality_level, validation_result = exporter.export(
+                                tmp.name
+                            )
+
+                            # Store in session state for display
+                            st.session_state.output_path = output_path
+                            st.session_state.quality_level = quality_level
+                            st.session_state.validation_result = validation_result
+                            st.session_state.exporter = exporter
+                            st.session_state.export_complete = True
+                            st.session_state.export_name = export_name
+
+                        # Navigate to page 5 to show results
+                        navigate_to(5)
+
+                    except Exception as e:
+                        st.error(f"Export failed: {e}")
+                        st.session_state.export_complete = False
+        else:
+            st.warning(
+                f"Please fill in the required fields: {', '.join(missing_fields)}"
+                if not has_required_fields
+                else "Please fix validation errors in the form"
+            )
 
 
 # Page 5: Review Parquet File
 elif st.session_state.page == 5:
     st.title("Step 5: Review Parquet File")
-    st.markdown("Generate and review your data package.")
-
-    # Export section
-    st.markdown("### Export Data Package")
-    export_name = st.text_input(
-        "Export file name",
-        value=f"{st.session_state.general_details['name']}.parquet",
-        help="Name for the exported Parquet file",
-        key="export_filename",
-    )
-
-    if st.button(
-        "📦 Generate Parquet File", type="primary", use_container_width=True
-    ):
-        with st.spinner("Building data package..."):
-            try:
-                from trailpack.packing.export_service import DataPackageExporter
-                from trailpack.packing.packing import read_parquet
-
-                exporter = DataPackageExporter(
-                    df=st.session_state.df,
-                    column_mappings=st.session_state.column_mappings,
-                    general_details=st.session_state.general_details,
-                    sheet_name=st.session_state.selected_sheet,
-                    file_name=st.session_state.file_name,
-                    suggestions_cache=st.session_state.suggestions_cache,
-                )
-
-                with tempfile.NamedTemporaryFile(
-                    delete=False, suffix=".parquet"
-                ) as tmp:
-                    output_path, quality_level, validation_result = exporter.export(
-                        tmp.name
-                    )
-
-                    # Store in session state for display
-                    st.session_state.output_path = output_path
-                    st.session_state.quality_level = quality_level
-                    st.session_state.validation_result = validation_result
-                    st.session_state.exporter = exporter
-                    st.session_state.export_complete = True
-
-            except Exception as e:
-                st.error(f"Export failed: {e}")
-                st.session_state.export_complete = False
-
-    # Display export results
+    
+    # Only show results if export is complete
     if st.session_state.get("export_complete", False):
         st.balloons()
 
@@ -1670,15 +1667,19 @@ elif st.session_state.page == 5:
             f"Data package created successfully!\n\n**Validation Level:** {quality_level}"
         )
 
-        # Display data sample
-        st.markdown("### 📊 Data Sample (first 10 rows)")
-        st.dataframe(exported_df.head(10), use_container_width=True)
-
-        # Display metadata in JSON format
+        # Display metadata in JSON format FIRST
         st.markdown("### Embedded Metadata")
         st.json(exported_metadata)
 
+        # Display data sample SECOND
+        st.markdown("### 📊 Data Sample (first 10 rows)")
+        st.dataframe(exported_df.head(10), use_container_width=True)
+
+        # Get export name from session state
+        export_name = st.session_state.get("export_name", f"{st.session_state.general_details['name']}.parquet")
+
         # Offer download
+        st.markdown("### Downloads")
         with open(st.session_state.output_path, "rb") as f:
             parquet_data = f.read()
 
@@ -1766,6 +1767,9 @@ elif st.session_state.page == 5:
                 use_container_width=True,
                 help="Package metadata configuration for reproducible exports",
             )
+    else:
+        # If no export has been completed, show message and back button
+        st.info("No parquet file has been generated yet. Please go back to page 4 and click 'Generate Parquet File'.")
 
     # Navigation
     st.markdown("---")
