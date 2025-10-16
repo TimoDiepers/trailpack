@@ -1675,7 +1675,7 @@ elif st.session_state.page == 5:
         st.dataframe(exported_df.head(10), use_container_width=True)
 
         # Display metadata in JSON format
-        st.markdown("### **Embedded Metadata")
+        st.markdown("### Embedded Metadata")
         st.json(exported_metadata)
 
         # Offer download
