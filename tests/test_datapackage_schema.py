@@ -237,7 +237,7 @@ class TestFieldAndResource:
         id_unit = Unit(
             name="NUM",
             long_name="dimensionless number",
-            path="https://vocab.sentier.dev/web/concept/https%3A//vocab.sentier.dev/units/unit/NUM?concept_scheme=https%3A%2F%2Fvocab.sentier.dev%2Funits%2F&language=en"
+            path="https://vocab.sentier.dev/web/concept/https%3A//vocab.sentier.dev/units/unit/NUM?concept_scheme=https%3A%2F%2Fvocab.sentier.dev%2Funits&language=en"
         )
         
         fields = [
