@@ -63,7 +63,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for concept links
+# Custom CSS for consistent typography
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap');
@@ -76,33 +76,6 @@ st.markdown("""
         font-family: 'Montserrat', sans-serif !important;
     }
 
-    .concept-link-box {
-        background: #f0f2f6;
-        padding: 8px 12px;
-        border-radius: 4px;
-        margin-top: 4px;
-        font-family: 'Montserrat', sans-serif;
-        font-size: 0.85rem;
-        border-left: 3px solid #0066cc;
-    }
-
-    .concept-link-box a {
-        color: #0066cc;
-        text-decoration: none;
-        word-break: break-all;
-        font-family: 'Montserrat', sans-serif;
-    }
-
-    .concept-link-box a:hover {
-        text-decoration: underline;
-    }
-
-    .concept-label {
-        font-weight: 600;
-        color: #333;
-        margin-bottom: 4px;
-        font-family: 'Montserrat', sans-serif;
-    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -580,12 +553,8 @@ elif st.session_state.page == 3:
                                 st.session_state.column_mappings[column] = selected_id
 
                                 # Display selected concept with clickable link
-                                st.markdown(
-                                    f'<div class="concept-link-box">'
-                                    f'<div class="concept-label">Selected: {selected_label}</div>'
-                                    f'<a href="{selected_id}" target="_blank">🔗 {selected_id}</a>'
-                                    f'</div>',
-                                    unsafe_allow_html=True
+                                st.info(
+                                    f"**Selected:** {selected_label}\n\n[🔗 {selected_id}]({selected_id})"
                                 )
 
                     # If numeric, show unit search field below ontology
@@ -647,12 +616,8 @@ elif st.session_state.page == 3:
                                     st.session_state.column_mappings[f"{column}_unit"] = selected_unit_id
 
                                     # Display selected unit with clickable link
-                                    st.markdown(
-                                        f'<div class="concept-link-box">'
-                                        f'<div class="concept-label">Selected unit: {selected_unit_label}</div>'
-                                        f'<a href="{selected_unit_id}" target="_blank">🔗 {selected_unit_id}</a>'
-                                        f'</div>',
-                                        unsafe_allow_html=True
+                                    st.info(
+                                        f"**Selected unit:** {selected_unit_label}\n\n[🔗 {selected_unit_id}]({selected_unit_id})"
                                     )
 
                 st.markdown("---")
