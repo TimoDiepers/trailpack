@@ -257,7 +257,8 @@ class Resource(BaseModel):
             if value:
                 result[key] = value
         
-        # Always include encoding (recommended field in standard)
+        # Always include encoding field (recommended in Trailpack standard v1.0.0)
+        # See: trailpack/validation/standards/v1.0.0.yaml - resources.recommended.encoding
         result["encoding"] = self.encoding
 
         if self.fields:
