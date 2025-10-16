@@ -102,10 +102,18 @@ class DataPackageExporter:
                     path="https://vocab.sentier.dev/units/unit/NUM"
                 )
 
+            # Build description: use column name if no ontology mapping found
+            if ontology_id:
+                # Has ontology mapping - use generic description
+                description = f"Column from {self.sheet_name}"
+            else:
+                # No ontology mapping - use column name in description for better metadata
+                description = f"{column} (from {self.sheet_name})"
+
             field = Field(
                 name=column,
                 type=field_type,
-                description=f"Column from {self.sheet_name}",
+                description=description,
                 unit=unit,
                 rdf_type=ontology_id,
                 taxonomy_url=ontology_id if ontology_id else None
