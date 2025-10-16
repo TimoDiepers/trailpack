@@ -984,9 +984,10 @@ elif st.session_state.page == 3:
                 has_concept_definition = bool(st.session_state.concept_definitions.get(concept_cache_key)) if concept_cache_key else False
                 
                 # Column is valid if:
-                # 1. Has ontology with API definition (description optional), OR
-                # 2. Has ontology without API definition (description optional), OR
+                # 1. Has ontology with API definition (description not needed), OR
+                # 2. Has ontology without API definition (description optional per requirements), OR
                 # 3. Has no ontology but has manual description
+                # Only invalid if missing BOTH ontology AND description
                 if not has_ontology and not has_description:
                     # Missing both ontology and description
                     missing_info.append(column)
