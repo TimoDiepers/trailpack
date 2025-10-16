@@ -126,7 +126,49 @@ field = {
 result = validator.validate_field_definition(field)
 ```
 
-### 6. Schema-Based Data Validation
+### 6. Resource Name Sanitization
+
+Resource names must match the pattern `^[a-z0-9\-_.]+$`. The validator can automatically sanitize invalid names:
+
+```python
+from trailpack.validation import StandardValidator
+
+validator = StandardValidator("1.0.0")
+
+# Check and get suggestion for invalid name
+is_valid, original, suggestion = validator.validate_and_sanitize_resource_name("My Resource!")
+print(f"Valid: {is_valid}")  # False
+print(f"Suggestion: {suggestion}")  # "my_resource"
+
+# Auto-sanitize names
+is_valid, sanitized, _ = validator.validate_and_sanitize_resource_name("My Resource!", auto_fix=True)
+print(f"Sanitized: {sanitized}")  # "my_resource"
+
+# Or use the sanitize method directly
+clean_name = validator.sanitize_resource_name("Test@123#ABC")
+print(clean_name)  # "test123abc"
+```
+
+**When validating resources**, the validator automatically suggests sanitized names:
+
+```python
+resource = {
+    "name": "My Data File!",  # Invalid: uppercase and special chars
+    "path": "data.csv",
+    "format": "csv"
+}
+
+result = validator.validate_resource(resource)
+# Warning: Resource name 'My Data File!' contains invalid characters. 
+#          Suggested name: 'my_data_file'
+```
+
+**In the UI**: When resource names are auto-inferred (e.g., from filenames), the validator will:
+1. Detect invalid names
+2. Show the suggested sanitized name
+3. Ask for user confirmation before applying
+
+### 7. Schema-Based Data Validation
 
 The validator can check that DataFrame values match their field type definitions:
 

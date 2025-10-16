@@ -407,3 +407,63 @@ def test_inconsistencies_export_to_csv(validator, sample_schema, tmp_path):
     assert any(row['value'] == '456' for row in rows)
     assert all(row['actual_type'] == 'int' for row in rows)
     assert all(row['expected_type'] == 'str' for row in rows)
+
+
+def test_sanitize_resource_name(validator):
+    """Test resource name sanitization."""
+    # Test with invalid characters
+    assert validator.sanitize_resource_name("My Resource!") == "my_resource"
+    assert validator.sanitize_resource_name("Test@123#ABC") == "test123abc"
+    assert validator.sanitize_resource_name("DATA FILE") == "data_file"
+    
+    # Test with special characters
+    assert validator.sanitize_resource_name("20_mw+") == "20_mw"
+    assert validator.sanitize_resource_name("test@#$%") == "test"
+    
+    # Test with dots
+    assert validator.sanitize_resource_name(".test.name.") == "test.name"
+    
+    # Test with valid name
+    assert validator.sanitize_resource_name("valid-name_123") == "valid-name_123"
+    
+    # Test empty string
+    assert validator.sanitize_resource_name("") == "resource"
+    assert validator.sanitize_resource_name("@#$%") == "resource"
+
+
+def test_validate_and_sanitize_resource_name(validator):
+    """Test resource name validation with sanitization."""
+    # Valid name
+    is_valid, name, suggestion = validator.validate_and_sanitize_resource_name("valid-name")
+    assert is_valid is True
+    assert name == "valid-name"
+    assert suggestion is None
+    
+    # Invalid name - get suggestion
+    is_valid, name, suggestion = validator.validate_and_sanitize_resource_name("Invalid Name!")
+    assert is_valid is False
+    assert name == "Invalid Name!"  # Original preserved when not auto_fix
+    assert suggestion == "invalid_name"
+    
+    # Invalid name - auto fix
+    is_valid, name, suggestion = validator.validate_and_sanitize_resource_name("Invalid Name!", auto_fix=True)
+    assert is_valid is False
+    assert name == "invalid_name"  # Sanitized when auto_fix
+    assert suggestion is None
+
+
+def test_validate_resource_suggests_sanitized_name(validator):
+    """Test that resource validation suggests sanitized names."""
+    resource = {
+        "name": "My Resource!",
+        "path": "data.csv",
+        "format": "csv"
+    }
+    
+    result = validator.validate_resource(resource)
+    
+    # Should have a warning with suggested name
+    warnings_str = " ".join([str(w) for w in result.warnings])
+    assert "My Resource!" in warnings_str
+    assert "my_resource" in warnings_str
+    assert "Suggested name" in warnings_str or "suggested" in warnings_str.lower()
