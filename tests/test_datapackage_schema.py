@@ -259,6 +259,113 @@ class TestFieldAndResource:
         assert "schema" in resource_dict
         assert len(resource_dict["schema"]["fields"]) == 2
         assert resource_dict["schema"]["primaryKey"] == ["id"]
+    
+    def test_numeric_field_requires_unit(self):
+        """Test that numeric fields must have a unit."""
+        # Should raise error for number without unit
+        with pytest.raises(ValueError, match="no unit specified"):
+            Field(
+                name="temperature",
+                type="number",
+                description="Temperature measurement"
+            )
+        
+        # Should raise error for integer without unit
+        with pytest.raises(ValueError, match="no unit specified"):
+            Field(
+                name="count",
+                type="integer",
+                description="Count of items"
+            )
+        
+        # Should succeed with unit for number
+        unit_temp = Unit(name="°C", long_name="degree Celsius", path="http://qudt.org/vocab/unit/DEG_C")
+        field_with_unit = Field(
+            name="temperature",
+            type="number",
+            description="Temperature measurement",
+            unit=unit_temp
+        )
+        assert field_with_unit.unit.name == "°C"
+        
+        # Should succeed with dimensionless unit for integer
+        unit_dim = Unit(name="dimensionless", long_name="dimensionless number", path="http://qudt.org/vocab/unit/NUM")
+        field_int_with_unit = Field(
+            name="count",
+            type="integer",
+            description="Count of items",
+            unit=unit_dim
+        )
+        assert field_int_with_unit.unit.name == "dimensionless"
+        
+        # Non-numeric fields should not require unit
+        field_string = Field(
+            name="name",
+            type="string",
+            description="Name field"
+        )
+        assert field_string.unit is None
+
+
+class TestUnitClass:
+    """Test the Unit class."""
+    
+    def test_unit_minimal(self):
+        """Test creating a Unit with only name (minimal)."""
+        unit = Unit(name="m")
+        assert unit.name == "m"
+        assert unit.long_name is None
+        assert unit.path is None
+        
+        unit_dict = unit.to_dict()
+        assert unit_dict["name"] == "m"
+        # Optional fields should not be in dict if None
+        assert "longName" not in unit_dict or unit_dict.get("longName") is None
+    
+    def test_unit_full(self):
+        """Test creating a Unit with all parameters."""
+        unit = Unit(
+            name="kg",
+            long_name="kilogram",
+            path="http://qudt.org/vocab/unit/KiloGM"
+        )
+        assert unit.name == "kg"
+        assert unit.long_name == "kilogram"
+        assert unit.path == "http://qudt.org/vocab/unit/KiloGM"
+        
+        unit_dict = unit.to_dict()
+        assert unit_dict["name"] == "kg"
+        assert unit_dict["longName"] == "kilogram"
+        assert unit_dict["path"] == "http://qudt.org/vocab/unit/KiloGM"
+    
+    def test_unit_invalid_url(self):
+        """Test that invalid URLs are caught."""
+        # Should raise error for invalid URL
+        with pytest.raises(ValueError, match="path must be a valid URL"):
+            Unit(
+                name="m",
+                path="not-a-valid-url"
+            )
+    
+    def test_field_templates_have_units(self):
+        """Test that FIELD_TEMPLATES numeric fields have units."""
+        from trailpack.packing.datapackage_schema import FIELD_TEMPLATES
+        
+        # Check latitude template
+        lat_template = FIELD_TEMPLATES["latitude"]
+        assert lat_template.name == "latitude"
+        assert lat_template.type == "number"
+        assert lat_template.unit is not None
+        assert lat_template.unit.name == "DEG"
+        assert "degree" in lat_template.unit.long_name.lower()
+        assert lat_template.unit.path is not None
+        
+        # Check longitude template
+        lon_template = FIELD_TEMPLATES["longitude"]
+        assert lon_template.name == "longitude"
+        assert lon_template.type == "number"
+        assert lon_template.unit is not None
+        assert lon_template.unit.name == "DEG"
 
 
 class TestCommonLicenses:
