@@ -426,9 +426,10 @@ def test_sanitize_resource_name(validator):
     # Test with valid name
     assert validator.sanitize_resource_name("valid-name_123") == "valid-name_123"
     
-    # Test empty string
+    # Test empty string and None
     assert validator.sanitize_resource_name("") == "resource"
     assert validator.sanitize_resource_name("@#$%") == "resource"
+    assert validator.sanitize_resource_name(None) == "resource"
 
 
 def test_validate_and_sanitize_resource_name(validator):
@@ -450,6 +451,30 @@ def test_validate_and_sanitize_resource_name(validator):
     assert is_valid is False
     assert name == "invalid_name"  # Sanitized when auto_fix
     assert suggestion is None
+    
+    # Test None input
+    is_valid, name, suggestion = validator.validate_and_sanitize_resource_name(None)
+    assert is_valid is False
+    assert name == ""
+    assert suggestion == "resource"
+    
+    # Test None with auto_fix
+    is_valid, name, suggestion = validator.validate_and_sanitize_resource_name(None, auto_fix=True)
+    assert is_valid is False
+    assert name == "resource"
+    assert suggestion is None
+    
+    # Test empty string
+    is_valid, name, suggestion = validator.validate_and_sanitize_resource_name("")
+    assert is_valid is False
+    assert name == ""
+    assert suggestion == "resource"
+    
+    # Test whitespace only
+    is_valid, name, suggestion = validator.validate_and_sanitize_resource_name("   ")
+    assert is_valid is False
+    assert name == "   "
+    assert suggestion == "___"
 
 
 def test_validate_resource_suggests_sanitized_name(validator):

@@ -848,7 +848,7 @@ class StandardValidator:
         return result
     
     def sanitize_resource_name(self, name: str) -> str:
-        """
+        r"""
         Sanitize resource name to match the required pattern ^[a-z0-9\-_.]+$.
         
         The resource name must only contain:
@@ -871,6 +871,13 @@ class StandardValidator:
             >>> validator.sanitize_resource_name("Test@123")
             'test123'
         """
+        # Handle None or empty input
+        if not name:
+            return "resource"
+        
+        # Convert to string if not already
+        name = str(name)
+        
         # Convert to lowercase
         name = name.lower()
         
@@ -918,6 +925,17 @@ class StandardValidator:
             >>> print(f"Valid: {is_valid}, Name: {name}")
             Valid: True, Name: valid-name
         """
+        # Handle None or empty input
+        if not name:
+            sanitized = self.sanitize_resource_name(name)
+            if auto_fix:
+                return False, sanitized, None
+            else:
+                return False, name if name is not None else "", sanitized
+        
+        # Convert to string if not already
+        name = str(name)
+        
         pattern = r"^[a-z0-9\-_.]+$"
         is_valid = bool(re.match(pattern, name))
         
