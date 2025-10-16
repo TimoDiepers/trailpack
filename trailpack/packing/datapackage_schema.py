@@ -114,7 +114,7 @@ class Unit(BaseModel):
     def validate_path_url(cls, v):
         """Validate URI format."""
         if v and not v.startswith(('http://', 'https://')):
-            raise ValueError('Unit path must be a valid http or https URI')
+            raise ValueError('path must be a valid URL')
         return v
     
     def to_dict(self) -> Dict[str, Any]:
@@ -643,7 +643,7 @@ FIELD_TEMPLATES = {
         type="number",
         description="Decimal latitude (WGS84)",
         unit=Unit(
-            name="deg",
+            name="DEG",
             long_name="degree",
             path="http://qudt.org/vocab/unit/DEG"
         ),
@@ -655,7 +655,7 @@ FIELD_TEMPLATES = {
         type="number",
         description="Decimal longitude (WGS84)",
         unit=Unit(
-            name="deg",
+            name="DEG",
             long_name="degree",
             path="http://qudt.org/vocab/unit/DEG"
         ),

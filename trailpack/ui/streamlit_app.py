@@ -152,6 +152,8 @@ if "df" not in st.session_state:
     st.session_state.df = None
 if "column_mappings" not in st.session_state:
     st.session_state.column_mappings = {}
+if "column_descriptions" not in st.session_state:
+    st.session_state.column_descriptions = {}
 if "suggestions_cache" not in st.session_state:
     st.session_state.suggestions_cache = {}
 if "view_object" not in st.session_state:
@@ -799,6 +801,30 @@ elif st.session_state.page == 3:
                                     st.info(
                                         f"**Selected unit:** {selected_unit_label}\n\n[🔗 View on vocab.sentier.dev]({web_url})"
                                     )
+                    
+                    # Description field - mandatory if no ontology mapping exists
+                    has_ontology = st.session_state.column_mappings.get(column) is not None
+                    description_label = "Column Description" if has_ontology else "Column Description *"
+                    description_help = "Provide a description for this column" if has_ontology else "Required: No ontology mapping selected. Please provide a description for this column."
+                    
+                    column_description = st.text_area(
+                        description_label,
+                        value=st.session_state.column_descriptions.get(column, ""),
+                        placeholder="Describe what this column represents...",
+                        help=description_help,
+                        key=f"description_{column}",
+                        height=80
+                    )
+                    
+                    # Store description in session state
+                    if column_description:
+                        st.session_state.column_descriptions[column] = column_description
+                    else:
+                        st.session_state.column_descriptions.pop(column, None)
+                    
+                    # Show warning if no ontology and no description
+                    if not has_ontology and not column_description:
+                        st.warning("Please provide either an ontology mapping or a description for this column.")
 
                 st.markdown("---")
 
@@ -813,10 +839,25 @@ elif st.session_state.page == 3:
                 navigate_to(2)
 
         with col3:
-            if st.button("Next ", type="primary", use_container_width=True):
-                # Generate view object internally (not displayed)
-                st.session_state.view_object = generate_view_object()
-                navigate_to(4)
+            # Check if all columns have either ontology or description
+            columns = st.session_state.reader.columns(st.session_state.selected_sheet)
+            missing_info = []
+            for column in columns:
+                has_ontology = st.session_state.column_mappings.get(column) is not None
+                has_description = bool(st.session_state.column_descriptions.get(column))
+                if not has_ontology and not has_description:
+                    missing_info.append(column)
+            
+            can_proceed = len(missing_info) == 0
+            
+            if can_proceed:
+                if st.button("Next ", type="primary", use_container_width=True):
+                    # Generate view object internally (not displayed)
+                    st.session_state.view_object = generate_view_object()
+                    navigate_to(4)
+            else:
+                st.button("Next ", type="primary", disabled=True, use_container_width=True)
+                st.error(f"The following columns need either an ontology mapping or a description: {', '.join(missing_info)}")
 
 
 # Page 4: General Details
