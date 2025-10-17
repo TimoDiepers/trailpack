@@ -3,7 +3,6 @@
 [![PyPI](https://img.shields.io/pypi/v/trailpack.svg)][pypi status]
 [![Status](https://img.shields.io/pypi/status/trailpack.svg)][pypi status]
 [![Python Version](https://img.shields.io/pypi/pyversions/trailpack)][pypi status]
-[![License](https://img.shields.io/pypi/l/trailpack)][license]
 
 [![Read the documentation at https://trailpaack.readthedocs.io/](https://img.shields.io/readthedocs/trailpack/latest.svg?label=Read%20the%20Docs)][read the docs]
 [![Tests](https://github.com/TimoDiepers/trailpack/actions/workflows/python-test.yml/badge.svg)][tests]
