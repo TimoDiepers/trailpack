@@ -210,6 +210,9 @@ def on_sheet_change():
         st.session_state.suggestions_cache = {}
         st.session_state.column_mappings = {}
         st.session_state.view_object = {}
+        # Clear search queries initialized flag so pre-population happens again
+        if "search_queries_initialized" in st.session_state:
+            st.session_state.search_queries_initialized = {}
 
 
 def load_excel_data(sheet_name: str) -> pd.DataFrame:
