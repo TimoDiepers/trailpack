@@ -4,8 +4,9 @@
 :color: info
 :expand:
 Trailpack proposes a standard way to link data and specialized metadata in one single file. It provides a simple interface to link metadata to fixed ontologies, improving the accessibility and comparability of datasets from different sources.
-It can be used in general to combine metadata and data into a [parquet](https://parquet.apache.org/) file. 
 ```
+It can be used in general to combine metadata and data into a [parquet](https://parquet.apache.org/) file. 
+
 **Why?** The ultimate goal is to make open data accessible and sustainable. Trailpack takes one step into this direction by including standardised metadata directly into the data files. 
 
 **Want to take a next step towards open data?** You could start preparing your datasets or participate in developing this tool! 
