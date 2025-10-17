@@ -911,6 +911,50 @@ elif st.session_state.page == 3:
                                         for cache_key in cache_keys_to_remove:
                                             st.session_state.suggestions_cache.pop(cache_key, None)
                                         st.rerun()
+                    
+                    # Description/Comment field - directly underneath ontology results
+                    # Show for all columns but with different labels and requirements
+                    has_ontology = st.session_state.column_mappings.get(column) is not None
+                    
+                    # Check if we have a concept definition from the API
+                    concept_cache_key = f"concept_{st.session_state.column_mappings.get(column)}" if has_ontology else None
+                    concept_definition = st.session_state.concept_definitions.get(concept_cache_key) if concept_cache_key else None
+                    
+                    # Determine label and help text based on ontology status
+                    if has_ontology and concept_definition:
+                        # Ontology selected with API definition - comment is optional
+                        description_label = "Comment (optional)"
+                        description_help = "Optional: Add additional comments or notes about this column."
+                        is_required = False
+                    elif has_ontology and not concept_definition:
+                        # Ontology selected but no API definition - description is optional
+                        description_label = "Column Description (optional)"
+                        description_help = "Optional: Add a custom description for this column. The selected ontology has no description available from the API."
+                        is_required = False
+                    else:
+                        # No ontology selected - description is required
+                        description_label = "Column Description *"
+                        description_help = "Required: No ontology mapping selected. Please provide a description for this column."
+                        is_required = True
+                    
+                    column_description = st.text_area(
+                        description_label,
+                        value=st.session_state.column_descriptions.get(column, ""),
+                        placeholder="Describe what this column represents..." if is_required else "Add optional comments or notes...",
+                        help=description_help,
+                        key=f"description_{column}",
+                        height=80
+                    )
+                    
+                    # Store description in session state
+                    if column_description:
+                        st.session_state.column_descriptions[column] = column_description
+                    else:
+                        st.session_state.column_descriptions.pop(column, None)
+                    
+                    # Show warning only if description is required and missing
+                    if is_required and not column_description:
+                        st.warning("Please provide either an ontology mapping or a description for this column.")
 
                     # If numeric, show unit search field below ontology
                     if is_numeric:
@@ -1069,46 +1113,6 @@ elif st.session_state.page == 3:
                                 "This column contains numerical data and requires a unit "
                                 "to be selected."
                             )
-                    
-                    # Description field - show for all columns but with different requirements
-                    has_ontology = st.session_state.column_mappings.get(column) is not None
-                    
-                    # Check if we have a concept definition from the API
-                    concept_cache_key = f"concept_{st.session_state.column_mappings.get(column)}" if has_ontology else None
-                    concept_definition = st.session_state.concept_definitions.get(concept_cache_key) if concept_cache_key else None
-                    
-                    # Show text area unless ontology has a description
-                    if not (has_ontology and concept_definition):
-                        # Determine if description is required or optional
-                        if has_ontology and not concept_definition:
-                            # Ontology selected but no API definition - description is optional
-                            description_label = "Column Description (optional)"
-                            description_help = "Optional: Add a custom description for this column. The selected ontology has no description available from the API."
-                            is_required = False
-                        else:
-                            # No ontology selected - description is required
-                            description_label = "Column Description *"
-                            description_help = "Required: No ontology mapping selected. Please provide a description for this column."
-                            is_required = True
-                        
-                        column_description = st.text_area(
-                            description_label,
-                            value=st.session_state.column_descriptions.get(column, ""),
-                            placeholder="Describe what this column represents...",
-                            help=description_help,
-                            key=f"description_{column}",
-                            height=80
-                        )
-                        
-                        # Store description in session state
-                        if column_description:
-                            st.session_state.column_descriptions[column] = column_description
-                        else:
-                            st.session_state.column_descriptions.pop(column, None)
-                        
-                        # Show warning only if description is required and missing
-                        if is_required and not column_description:
-                            st.warning("Please provide either an ontology mapping or a description for this column.")
 
                 st.markdown("---")
 
@@ -1806,6 +1810,7 @@ The resource name identifies your data file in the package. It must follow speci
                             sheet_name=st.session_state.selected_sheet,
                             file_name=st.session_state.file_name,
                             suggestions_cache=st.session_state.suggestions_cache,
+                            column_descriptions=st.session_state.column_descriptions,
                         )
 
                         with tempfile.NamedTemporaryFile(

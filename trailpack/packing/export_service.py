@@ -29,6 +29,7 @@ class DataPackageExporter:
         sheet_name: str,
         file_name: str,
         suggestions_cache: Dict[str, List] = None,
+        column_descriptions: Dict[str, str] = None,
         standard_version: str = "1.0.0"
     ):
         """
@@ -41,6 +42,7 @@ class DataPackageExporter:
             sheet_name: Name of the Excel sheet
             file_name: Original file name
             suggestions_cache: Cache of PyST suggestions with id and label
+            column_descriptions: User-provided descriptions/comments for columns
             standard_version: Trailpack standard version to validate against
         """
         self.df = df
@@ -49,6 +51,7 @@ class DataPackageExporter:
         self.sheet_name = sheet_name
         self.file_name = file_name
         self.suggestions_cache = suggestions_cache or {}
+        self.column_descriptions = column_descriptions or {}
         self.schema = DataPackageSchema()
         self.validator = StandardValidator(standard_version)
 
@@ -139,10 +142,13 @@ class DataPackageExporter:
                     path="https://vocab.sentier.dev/units/unit/NUM"
                 )
 
+            # Get description/comment from user input or use default
+            description = self.column_descriptions.get(column, f"Column from {self.sheet_name}")
+            
             field = Field(
                 name=column,
                 type=field_type,
-                description=f"Column from {self.sheet_name}",
+                description=description,
                 unit=unit,
                 rdf_type=ontology_id,
                 taxonomy_url=ontology_id if ontology_id else None
