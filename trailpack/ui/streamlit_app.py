@@ -173,12 +173,11 @@ if "resource_name_editing" not in st.session_state:
 
 
 def render_sidebar_header():
-    """Render the Trailpack branding block in the sidebar with clickable return to start."""
+    """Render the Trailpack branding block in the sidebar."""
     if LOGO_BASE64:
-        # Display the logo and text (visual header)
         st.markdown(
             f"""
-            <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem;">
+            <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.5rem;">
                 <img src="data:image/svg+xml;base64,{LOGO_BASE64}" alt="Trailpack logo"
                      style="width:56px;height:auto;" />
                 <div style="display:flex;flex-direction:column;">
@@ -191,15 +190,9 @@ def render_sidebar_header():
             """,
             unsafe_allow_html=True,
         )
-        # Add clickable button to return to start (positioned right below the header)
-        if st.button("🏠 Return to Start", key="sidebar_return_home", help="Click to go back to Step 1", use_container_width=True):
-            navigate_to(1)
     else:
         st.title("Trailpack")
         st.markdown("### Excel to PyST Mapper")
-        # Add clickable button for fallback case too
-        if st.button("🏠 Return to Start", key="sidebar_return_home_text", help="Click to go back to Step 1", use_container_width=True):
-            navigate_to(1)
 
 
 def navigate_to(page: int):
