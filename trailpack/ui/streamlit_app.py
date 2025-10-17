@@ -813,8 +813,12 @@ elif st.session_state.page == 3:
                     # If numeric, show unit search field below ontology
                     if is_numeric:
                         # Show warning that unit is required
-                        st.warning("⚠️ **Unit required:** This column contains numerical data and requires a unit to be selected. The Next button will be disabled until a unit is selected.")
-                        
+                        st.warning(
+                            "⚠️ **Unit required:** This column contains numerical data "
+                            "and requires a unit to be selected. The Next button will "
+                            "be disabled until a unit is selected."
+                        )
+
                         # Unit search field
                         unit_search_query = st.text_input(
                             "Search for unit",
@@ -1039,9 +1043,15 @@ elif st.session_state.page == 3:
                 st.button("Next ", type="primary", disabled=True, use_container_width=True)
                 error_messages = []
                 if missing_info:
-                    error_messages.append(f"The following columns need either an ontology mapping or a description: {', '.join(missing_info)}")
+                    error_messages.append(
+                        "The following columns need either an ontology mapping "
+                        f"or a description: {', '.join(missing_info)}"
+                    )
                 if missing_units:
-                    error_messages.append(f"The following numerical columns require a unit to be selected: {', '.join(missing_units)}")
+                    error_messages.append(
+                        "The following numerical columns require a unit to be "
+                        f"selected: {', '.join(missing_units)}"
+                    )
                 for error_msg in error_messages:
                     st.error(error_msg)
 
