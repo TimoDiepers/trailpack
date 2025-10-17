@@ -819,13 +819,10 @@ elif st.session_state.page == 3:
                             placeholder="Type and press Enter to search...",
                             label_visibility="visible",
                         )
-
-                        # Show warning that unit is required
-                        st.warning(
-                            "This column contains numerical data and requires a unit "
-                            "to be selected."
-                        )
-
+                        
+                        # Show warning if no search has been made yet or no results
+                        show_warning = True
+                        
                         # Fetch and display unit suggestions
                         if unit_search_query and len(unit_search_query) >= 2:
                             cache_key = f"{column}_unit_{unit_search_query}"
@@ -874,6 +871,9 @@ elif st.session_state.page == 3:
                                         continue
 
                                 if valid_suggestions:
+                                    # Hide warning when selectbox is shown
+                                    show_warning = False
+                                    
                                     options = [s["label"] for s in valid_suggestions]
                                     option_ids = [s["id"] for s in valid_suggestions]
 
@@ -949,6 +949,13 @@ elif st.session_state.page == 3:
                                             for cache_key in unit_cache_keys_to_remove:
                                                 st.session_state.suggestions_cache.pop(cache_key, None)
                                             st.rerun()
+                        
+                        # Show warning if no selectbox was displayed
+                        if show_warning:
+                            st.warning(
+                                "This column contains numerical data and requires a unit "
+                                "to be selected."
+                            )
                     
                     # Description field - show for all columns but with different requirements
                     has_ontology = st.session_state.column_mappings.get(column) is not None
