@@ -905,6 +905,9 @@ elif st.session_state.page == 3:
                             label_visibility="visible",
                         )
                         
+                        # Show warning if no search has been made yet or no results
+                        show_warning = True
+                        
                         # Update session state with current unit search query
                         st.session_state[unit_search_key] = unit_search_query
 
@@ -956,6 +959,9 @@ elif st.session_state.page == 3:
                                         continue
 
                                 if valid_suggestions:
+                                    # Hide warning when selectbox is shown
+                                    show_warning = False
+                                    
                                     options = [s["label"] for s in valid_suggestions]
                                     option_ids = [s["id"] for s in valid_suggestions]
 
@@ -1034,6 +1040,13 @@ elif st.session_state.page == 3:
                                             for cache_key in unit_cache_keys_to_remove:
                                                 st.session_state.suggestions_cache.pop(cache_key, None)
                                             st.rerun()
+                        
+                        # Show warning if no selectbox was displayed
+                        if show_warning:
+                            st.warning(
+                                "This column contains numerical data and requires a unit "
+                                "to be selected."
+                            )
                     
                     # Description field - show for all columns but with different requirements
                     has_ontology = st.session_state.column_mappings.get(column) is not None
@@ -1091,6 +1104,7 @@ elif st.session_state.page == 3:
             # Check if all columns have either ontology or description
             columns = st.session_state.reader.columns(st.session_state.selected_sheet)
             missing_info = []
+            missing_units = []
             for column in columns:
                 has_ontology = st.session_state.column_mappings.get(column) is not None
                 has_description = bool(st.session_state.column_descriptions.get(column))
@@ -1107,8 +1121,15 @@ elif st.session_state.page == 3:
                 if not has_ontology and not has_description:
                     # Missing both ontology and description
                     missing_info.append(column)
+                
+                # Check if numerical columns have units
+                is_numeric = pd.api.types.is_numeric_dtype(st.session_state.df[column])
+                if is_numeric:
+                    has_unit = st.session_state.column_mappings.get(f"{column}_unit") is not None
+                    if not has_unit:
+                        missing_units.append(column)
             
-            can_proceed = len(missing_info) == 0
+            can_proceed = len(missing_info) == 0 and len(missing_units) == 0
             
             if can_proceed:
                 if st.button("Next ", type="primary", use_container_width=True):
@@ -1117,7 +1138,19 @@ elif st.session_state.page == 3:
                     navigate_to(4)
             else:
                 st.button("Next ", type="primary", disabled=True, use_container_width=True)
-                st.error(f"The following columns need either an ontology mapping or a description: {', '.join(missing_info)}")
+                error_messages = []
+                if missing_info:
+                    error_messages.append(
+                        "The following columns need either an ontology mapping "
+                        f"or a description: {', '.join(missing_info)}"
+                    )
+                if missing_units:
+                    error_messages.append(
+                        "The following numerical columns require a unit to be "
+                        f"selected: {', '.join(missing_units)}"
+                    )
+                for error_msg in error_messages:
+                    st.error(error_msg)
 
 
 # Page 4: General Details
