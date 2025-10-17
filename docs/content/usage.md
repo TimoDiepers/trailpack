@@ -9,10 +9,10 @@ For advanced users, the moficiation directly via code is accessible by installin
 
 A simple example on how to use the web-application is included below. First loading a data excel file and linking the ontologies and adding the general metadata towards generating the full parquet file.
 
-<div style="width:45%; margin: auto;">
+<div style="width:95%; margin: auto;">
 ![](../uploading_and_ontology_streamlit-streamlit_app-2025-10-17-08-10-31.webm)
 </div>
 
-<div style="width:45%; margin: auto;">
+<div style="width:95%; margin: auto;">
 ![](../general_metadata_to_download_streamlit-streamlit_app-2025-10-17-08-10-00.webm)
 </div>
