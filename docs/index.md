@@ -12,8 +12,8 @@ It can be used in general to combine metadata and data into a [parquet](https://
 **Want to take a next step towards open data?** You could start preparing your datasets or participate in developing this tool! 
 
 Trailpack collects metadata and directly validates it with the developed standard including
-* general metadata for the datapackage, like name and license
-* specialised metadata for each data column - linking both column names and units to fixed descriptions given in ontologies provided by [PySt](https://vocab.sentier.dev)   
+* *general metadata* for the datapackage, like name and license
+* *specialised metadata* for each data column - linking both column names and units to fixed descriptions given in ontologies provided by [PySt](https://vocab.sentier.dev)   
 The developed standard expands on and is compatible with the [datapackage](https://datapackage.org/) standard. The metadata is and included under the datapackage.json keyword.
 
 Both formats for metadata and file format are chosen based on widespread usage and standardisation.
