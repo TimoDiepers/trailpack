@@ -6,7 +6,6 @@
 
 [![Read the documentation at https://trailpaack.readthedocs.io/](https://img.shields.io/readthedocs/trailpack/latest.svg?label=Read%20the%20Docs)][read the docs]
 [![Tests](https://github.com/TimoDiepers/trailpack/actions/workflows/python-test.yml/badge.svg)][tests]
-[![Codecov](https://codecov.io/gh/TimoDiepers/trailpack/branch/main/graph/badge.svg)][codecov]
 
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)][pre-commit]
 [![Black](https://img.shields.io/badge/code%20style-black-000000.svg)][black]
@@ -14,7 +13,6 @@
 [pypi status]: https://pypi.org/project/trailpack/
 [read the docs]: https://trailpack.readthedocs.io/
 [tests]: https://github.com/TimoDiepers/trailpack/actions?workflow=Tests
-[codecov]: https://app.codecov.io/gh/TimoDiepers/trailpack
 [pre-commit]: https://github.com/pre-commit/pre-commit
 [black]: https://github.com/psf/black
 
