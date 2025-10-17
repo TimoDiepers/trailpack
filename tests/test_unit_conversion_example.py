@@ -4,16 +4,18 @@ import pytest
 import pandas as pd
 import json
 from pathlib import Path
-import sys
+import importlib.util
 
-# Add examples to path
-sys.path.insert(0, str(Path(__file__).parent.parent / "examples"))
+# Load the example module dynamically without modifying sys.path
+example_path = Path(__file__).parent.parent / "examples" / "unit_conversion_concatenation.py"
+spec = importlib.util.spec_from_file_location("unit_conversion_concatenation", example_path)
+unit_conversion_module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(unit_conversion_module)
 
-from unit_conversion_concatenation import (
-    read_parquet_with_metadata,
-    convert_column_units,
-    concatenate_with_unit_conversion,
-)
+# Import functions from the loaded module
+read_parquet_with_metadata = unit_conversion_module.read_parquet_with_metadata
+convert_column_units = unit_conversion_module.convert_column_units
+concatenate_with_unit_conversion = unit_conversion_module.concatenate_with_unit_conversion
 
 
 class TestReadParquetWithMetadata:
@@ -196,17 +198,15 @@ class TestExampleExecution:
 
     def test_can_import_example_module(self):
         """Test that the example module can be imported."""
-        import unit_conversion_concatenation
-        
-        assert hasattr(unit_conversion_concatenation, "main")
-        assert hasattr(unit_conversion_concatenation, "concatenate_with_unit_conversion")
-        assert hasattr(unit_conversion_concatenation, "convert_column_units")
+        assert hasattr(unit_conversion_module, "main")
+        assert hasattr(unit_conversion_module, "concatenate_with_unit_conversion")
+        assert hasattr(unit_conversion_module, "convert_column_units")
 
 
 @pytest.mark.anyio
 async def test_get_unit_info_from_pyst_handles_errors():
     """Test that get_unit_info_from_pyst handles API errors gracefully."""
-    from unit_conversion_concatenation import get_unit_info_from_pyst
+    get_unit_info_from_pyst = unit_conversion_module.get_unit_info_from_pyst
     
     # This will likely fail in test environment (no API access)
     # but should return None or a fallback URI, not raise an exception
@@ -219,7 +219,7 @@ async def test_get_unit_info_from_pyst_handles_errors():
 @pytest.mark.anyio
 async def test_create_datapackage_with_pyst():
     """Test creating a data package with PyST metadata."""
-    from unit_conversion_concatenation import create_datapackage_with_pyst
+    create_datapackage_with_pyst = unit_conversion_module.create_datapackage_with_pyst
     
     # Create a simple test dataframe
     df = pd.DataFrame({
