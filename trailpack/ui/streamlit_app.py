@@ -206,13 +206,15 @@ def on_sheet_change():
     # This runs BEFORE the page renders, so sidebar will show updated sheet name
     selected = st.session_state.get("sheet_radio")
     if selected and selected != st.session_state.selected_sheet:
+        old_sheet = st.session_state.selected_sheet
         st.session_state.selected_sheet = selected
         st.session_state.suggestions_cache = {}
         st.session_state.column_mappings = {}
         st.session_state.view_object = {}
-        # Clear search queries initialized flag so pre-population happens again
-        if "search_queries_initialized" in st.session_state:
-            st.session_state.search_queries_initialized = {}
+        # Clear search queries initialized flag for the old sheet only
+        # This allows returning to this sheet to re-fetch suggestions
+        if "search_queries_initialized" in st.session_state and old_sheet:
+            st.session_state.search_queries_initialized.pop(old_sheet, None)
 
 
 def load_excel_data(sheet_name: str) -> pd.DataFrame:
@@ -680,7 +682,8 @@ elif st.session_state.page == 3:
                         st.session_state[search_key] = column
                     
                     # Pre-fetch suggestions for column name
-                    cache_key = f"{column}_{column}"
+                    # Use explicit cache key format for pre-populated suggestions
+                    cache_key = f"{column}_{column}"  # {column}_{search_query} where search_query == column
                     if cache_key not in st.session_state.suggestions_cache:
                         suggestions = fetch_suggestions_sync(column, st.session_state.language)
                         st.session_state.suggestions_cache[cache_key] = suggestions[:5]
