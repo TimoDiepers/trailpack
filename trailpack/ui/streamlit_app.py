@@ -217,6 +217,34 @@ def on_sheet_change():
             st.session_state.search_queries_initialized.pop(old_sheet, None)
 
 
+def sanitize_search_query(query: str) -> str:
+    """
+    Sanitize search query for safe API calls.
+    
+    Replaces special characters that might cause issues with the PyST API.
+    Converts problematic characters to spaces and cleans up the result.
+    
+    Args:
+        query: The original search query string
+        
+    Returns:
+        Sanitized query string safe for API calls
+    """
+    import re
+    
+    # Replace forward slashes, backslashes, and other special characters with spaces
+    # Keep alphanumeric, spaces, hyphens, underscores, and periods
+    sanitized = re.sub(r'[^\w\s\-.]', ' ', query)
+    
+    # Collapse multiple spaces into single space
+    sanitized = re.sub(r'\s+', ' ', sanitized)
+    
+    # Strip leading/trailing whitespace
+    sanitized = sanitized.strip()
+    
+    return sanitized
+
+
 def load_excel_data(sheet_name: str) -> pd.DataFrame:
     """Load Excel data into a pandas DataFrame using SmartDataReader."""
     if st.session_state.temp_path is None:
@@ -243,8 +271,16 @@ async def fetch_suggestions_async(
 ) -> List[Dict[str, str]]:
     """Fetch PyST suggestions for a column name."""
     try:
+        # Sanitize the search query to prevent API errors from special characters
+        sanitized_query = sanitize_search_query(column_name)
+        
+        # Skip if sanitization resulted in empty string
+        if not sanitized_query:
+            st.warning(f"Column name '{column_name}' could not be sanitized for search")
+            return []
+        
         client = get_suggest_client()
-        suggestions = await client.suggest(column_name, language)
+        suggestions = await client.suggest(sanitized_query, language)
 
         # Debug: Log first suggestion structure to understand response format
         if suggestions and len(suggestions) > 0:
