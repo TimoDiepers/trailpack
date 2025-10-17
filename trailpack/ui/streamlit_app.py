@@ -942,11 +942,10 @@ elif st.session_state.page == 3:
                                         st.session_state.concept_definitions.pop(
                                             concept_cache_key, None
                                         )
-                                        # Clear search field text by setting to empty string
+                                        # Clear search field text by clearing the data key
+                                        # Only modify search_key (data), not search_input_key (widget key)
                                         search_key = f"search_{column}"
-                                        search_input_key = f"search_input_{column}"
                                         st.session_state[search_key] = ""
-                                        st.session_state[search_input_key] = ""
                                         # Clear all cache entries for this column
                                         clear_column_cache_entries(column)
                                         st.rerun()
@@ -1183,13 +1182,10 @@ elif st.session_state.page == 3:
                                             st.session_state.concept_definitions.pop(
                                                 unit_concept_cache_key, None
                                             )
-                                            # Clear unit search field text by setting to empty string
+                                            # Clear unit search field text by clearing the data key
+                                            # Only modify unit_search_key (data), not unit_search_input_key (widget key)
                                             unit_search_key = f"search_unit_{column}"
-                                            unit_search_input_key = (
-                                                f"search_unit_input_{column}"
-                                            )
                                             st.session_state[unit_search_key] = ""
-                                            st.session_state[unit_search_input_key] = ""
                                             # Clear unit cache entries
                                             clear_column_cache_entries(
                                                 column, prefix="unit_"
