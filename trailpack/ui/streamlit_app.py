@@ -487,13 +487,22 @@ if st.session_state.get("scroll_to_top", False):
     st.markdown(
         """
         <script>
-            // Scroll to top of the page
-            var mainContent = window.parent.document.querySelector('section.main');
-            if (mainContent) {
-                mainContent.scrollTo(0, 0);
-            }
-            // Fallback: scroll the entire window
-            window.parent.scrollTo(0, 0);
+            // Scroll to top of the page after navigation
+            (function() {
+                // Try to scroll the main content area (Streamlit's default structure)
+                var mainContent = window.parent.document.querySelector('section.main');
+                if (mainContent) {
+                    mainContent.scrollTo({top: 0, behavior: 'instant'});
+                }
+                
+                // Also scroll the window if parent exists and is different from current window
+                if (window.parent && window.parent !== window) {
+                    window.parent.scrollTo({top: 0, behavior: 'instant'});
+                } else {
+                    // Fallback: scroll current window
+                    window.scrollTo({top: 0, behavior: 'instant'});
+                }
+            })();
         </script>
         """,
         unsafe_allow_html=True,
