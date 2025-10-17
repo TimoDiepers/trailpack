@@ -198,6 +198,7 @@ def render_sidebar_header():
 def navigate_to(page: int):
     """Navigate to a specific page."""
     st.session_state.page = page
+    st.session_state.scroll_to_top = True
     st.rerun()
 
 
@@ -480,6 +481,24 @@ with st.sidebar:
 
 
 # ===== MAIN CONTENT =====
+
+# Handle scroll to top after navigation
+if st.session_state.get("scroll_to_top", False):
+    st.markdown(
+        """
+        <script>
+            // Scroll to top of the page
+            var mainContent = window.parent.document.querySelector('section.main');
+            if (mainContent) {
+                mainContent.scrollTo(0, 0);
+            }
+            // Fallback: scroll the entire window
+            window.parent.scrollTo(0, 0);
+        </script>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.session_state.scroll_to_top = False
 
 # Page 1: File Upload and Language Selection
 if st.session_state.page == 1:
