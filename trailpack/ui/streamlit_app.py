@@ -661,6 +661,30 @@ elif st.session_state.page == 3:
         # Display column mappings in a clean table-like format
         st.markdown("---")
 
+        # Pre-populate search queries with column names on first load of the sheet
+        if "search_queries_initialized" not in st.session_state:
+            st.session_state.search_queries_initialized = {}
+        
+        # Initialize search queries for this sheet if not already done
+        sheet_key = st.session_state.selected_sheet
+        if sheet_key not in st.session_state.search_queries_initialized:
+            # Show a brief loading message while pre-fetching
+            with st.spinner("Pre-loading ontology suggestions for columns..."):
+                for column in columns:
+                    # Initialize search query with column name
+                    search_key = f"search_{column}"
+                    if search_key not in st.session_state:
+                        st.session_state[search_key] = column
+                    
+                    # Pre-fetch suggestions for column name
+                    cache_key = f"{column}_{column}"
+                    if cache_key not in st.session_state.suggestions_cache:
+                        suggestions = fetch_suggestions_sync(column, st.session_state.language)
+                        st.session_state.suggestions_cache[cache_key] = suggestions[:5]
+            
+            # Mark this sheet as initialized
+            st.session_state.search_queries_initialized[sheet_key] = True
+
         for column in columns:
             with st.container():
                 col1, col2 = st.columns([1, 2])
@@ -685,12 +709,20 @@ elif st.session_state.page == 3:
                     )
 
                     # Ontology search field (for all columns)
+                    # Pre-populate with column name if not manually changed
+                    search_key = f"search_{column}"
+                    default_search_value = st.session_state.get(search_key, column)
+                    
                     search_query = st.text_input(
                         "Search for ontology",
-                        key=f"search_{column}",
+                        value=default_search_value,
+                        key=f"search_input_{column}",
                         placeholder="Type and press Enter to search...",
                         label_visibility="visible",
                     )
+                    
+                    # Update session state with current search query
+                    st.session_state[search_key] = search_query
 
                     # Fetch and display ontology suggestions
                     if search_query and len(search_query) >= 2:
@@ -802,8 +834,11 @@ elif st.session_state.page == 3:
                                         st.session_state.concept_definitions.pop(concept_cache_key, None)
                                         # Clear search field text by deleting the widget state
                                         search_key = f"search_{column}"
+                                        search_input_key = f"search_input_{column}"
                                         if search_key in st.session_state:
                                             del st.session_state[search_key]
+                                        if search_input_key in st.session_state:
+                                            del st.session_state[search_input_key]
                                         # Clear all suggestions cache entries for this column
                                         cache_keys_to_remove = [k for k in st.session_state.suggestions_cache.keys() if k.startswith(f"{column}_")]
                                         for cache_key in cache_keys_to_remove:
@@ -813,12 +848,20 @@ elif st.session_state.page == 3:
                     # If numeric, show unit search field below ontology
                     if is_numeric:
                         # Unit search field
+                        # Pre-populate with "unit" as default search term for numeric columns
+                        unit_search_key = f"search_unit_{column}"
+                        default_unit_search_value = st.session_state.get(unit_search_key, "")
+                        
                         unit_search_query = st.text_input(
                             "Search for unit",
-                            key=f"search_unit_{column}",
+                            value=default_unit_search_value,
+                            key=f"search_unit_input_{column}",
                             placeholder="Type and press Enter to search...",
                             label_visibility="visible",
                         )
+                        
+                        # Update session state with current unit search query
+                        st.session_state[unit_search_key] = unit_search_query
 
                         # Fetch and display unit suggestions
                         if unit_search_query and len(unit_search_query) >= 2:
@@ -936,8 +979,11 @@ elif st.session_state.page == 3:
                                             st.session_state.concept_definitions.pop(unit_concept_cache_key, None)
                                             # Clear unit search field text by deleting the widget state
                                             unit_search_key = f"search_unit_{column}"
+                                            unit_search_input_key = f"search_unit_input_{column}"
                                             if unit_search_key in st.session_state:
                                                 del st.session_state[unit_search_key]
+                                            if unit_search_input_key in st.session_state:
+                                                del st.session_state[unit_search_input_key]
                                             # Clear all unit suggestions cache entries for this column
                                             unit_cache_keys_to_remove = [k for k in st.session_state.suggestions_cache.keys() if k.startswith(f"{column}_unit_")]
                                             for cache_key in unit_cache_keys_to_remove:
