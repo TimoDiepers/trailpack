@@ -11,7 +11,7 @@
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)][pre-commit]
 [![Black](https://img.shields.io/badge/code%20style-black-000000.svg)][black]
 
-[pypi status]: https://pypi.org/project/trailpaack/
+[pypi status]: https://pypi.org/project/trailpack/
 [read the docs]: https://trailpack.readthedocs.io/
 [tests]: https://github.com/TimoDiepers/trailpack/actions?workflow=Tests
 [codecov]: https://app.codecov.io/gh/TimoDiepers/trailpack
