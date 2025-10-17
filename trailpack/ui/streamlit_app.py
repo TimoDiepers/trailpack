@@ -220,49 +220,49 @@ def on_sheet_change():
 def sanitize_search_query(query: str) -> str:
     """
     Sanitize search query for safe API calls.
-    
+
     Replaces special characters that might cause issues with the PyST API.
     Converts problematic characters to spaces and cleans up the result.
-    
+
     Args:
         query: The original search query string
-        
+
     Returns:
         Sanitized query string safe for API calls
     """
     import re
-    
+
     # Replace forward slashes, backslashes, and other special characters with spaces
     # Keep alphanumeric, spaces, hyphens, underscores, and periods
-    sanitized = re.sub(r'[^\w\s\-.]', ' ', query)
-    
+    sanitized = re.sub(r"[^\w\s\-.]", " ", query)
+
     # Collapse multiple spaces into single space
-    sanitized = re.sub(r'\s+', ' ', sanitized)
-    
+    sanitized = re.sub(r"\s+", " ", sanitized)
+
     # Strip leading/trailing whitespace
     sanitized = sanitized.strip()
-    
+
     return sanitized
 
 
 def extract_first_word(query: str) -> str:
     """
     Extract the first word from a string, stopping at the first space.
-    
+
     This is used to populate search fields with just the first word of a column name
     instead of the entire name, making searches more focused.
-    
+
     Args:
         query: The input string
-        
+
     Returns:
         The first word (substring up to first space), or empty string if input is empty
     """
     if not query:
         return ""
-    
+
     # Split at first space and take the first part
-    parts = query.split(' ', 1)
+    parts = query.split(" ", 1)
     return parts[0] if parts else ""
 
 
@@ -294,12 +294,12 @@ async def fetch_suggestions_async(
     try:
         # Sanitize the search query to prevent API errors from special characters
         sanitized_query = sanitize_search_query(column_name)
-        
+
         # Skip if sanitization resulted in empty string
         if not sanitized_query:
             st.warning(f"Column name '{column_name}' could not be sanitized for search")
             return []
-        
+
         client = get_suggest_client()
         suggestions = await client.suggest(sanitized_query, language)
 
@@ -352,26 +352,27 @@ async def fetch_concept_async(iri: str, language: str) -> Optional[str]:
     try:
         client = get_suggest_client()
         concept = await client.get_concept(iri)
-        
+
         # Extract SKOS definition
         # The response format is: "http://www.w3.org/2004/02/skos/core#definition": [{"@language": "en", "@value": "..."}]
         definitions = concept.get("http://www.w3.org/2004/02/skos/core#definition", [])
-        
+
         if not definitions:
             return None
-        
+
         # Try to find definition in the requested language
         for definition in definitions:
             if isinstance(definition, dict) and definition.get("@language") == language:
                 return definition.get("@value")
-        
+
         # Fallback: return first available definition
         if definitions and isinstance(definitions[0], dict):
             return definitions[0].get("@value")
-        
+
         return None
     except Exception as e:
         import sys
+
         print(f"DEBUG - Error fetching concept {iri}: {e}", file=sys.stderr)
         return None
 
@@ -400,6 +401,7 @@ def fetch_concept_sync(iri: str, language: str) -> Optional[str]:
 
     except Exception as e:
         import sys
+
         print(f"DEBUG - Error in fetch_concept_sync for {iri}: {e}", file=sys.stderr)
         return None
 
@@ -619,7 +621,13 @@ if st.session_state.page == 1:
 
                 navigate_to(2)
         else:
-            st.button("Next ", type="primary", disabled=True, use_container_width=True, help="Please upload a file first")
+            st.button(
+                "Next ",
+                type="primary",
+                disabled=True,
+                use_container_width=True,
+                help="Please upload a file first",
+            )
 
 
 # Page 2: Sheet Selection
@@ -726,7 +734,7 @@ elif st.session_state.page == 3:
         # Pre-populate search queries with column names on first load of the sheet
         if "search_queries_initialized" not in st.session_state:
             st.session_state.search_queries_initialized = {}
-        
+
         # Initialize search queries for this sheet if not already done
         sheet_key = st.session_state.selected_sheet
         if sheet_key not in st.session_state.search_queries_initialized:
@@ -740,15 +748,17 @@ elif st.session_state.page == 3:
                         sanitized_column = sanitize_search_query(column)
                         first_word = extract_first_word(sanitized_column)
                         st.session_state[search_key] = first_word
-                    
+
                     # Pre-fetch suggestions for the first word
                     # Use explicit cache key format for pre-populated suggestions
                     first_word = st.session_state[search_key]
                     cache_key = f"{column}_{first_word}"  # {column}_{search_query} where search_query == first word
                     if cache_key not in st.session_state.suggestions_cache:
-                        suggestions = fetch_suggestions_sync(first_word, st.session_state.language)
+                        suggestions = fetch_suggestions_sync(
+                            first_word, st.session_state.language
+                        )
                         st.session_state.suggestions_cache[cache_key] = suggestions[:5]
-            
+
             # Mark this sheet as initialized
             st.session_state.search_queries_initialized[sheet_key] = True
 
@@ -779,7 +789,7 @@ elif st.session_state.page == 3:
                     # Use the value from session state without fallback to avoid re-populating after clear
                     search_key = f"search_{column}"
                     default_search_value = st.session_state.get(search_key, "")
-                    
+
                     search_query = st.text_input(
                         "Search for ontology",
                         value=default_search_value,
@@ -787,7 +797,7 @@ elif st.session_state.page == 3:
                         placeholder="Type and press Enter to search...",
                         label_visibility="visible",
                     )
-                    
+
                     # Update session state with current search query
                     st.session_state[search_key] = search_query
 
@@ -866,21 +876,30 @@ elif st.session_state.page == 3:
 
                                 # Fetch concept definition from API if not already cached
                                 concept_cache_key = f"concept_{selected_id}"
-                                if concept_cache_key not in st.session_state.concept_definitions:
+                                if (
+                                    concept_cache_key
+                                    not in st.session_state.concept_definitions
+                                ):
                                     concept_definition = fetch_concept_sync(
                                         selected_id, st.session_state.language
                                     )
                                     if concept_definition:
-                                        st.session_state.concept_definitions[concept_cache_key] = concept_definition
+                                        st.session_state.concept_definitions[
+                                            concept_cache_key
+                                        ] = concept_definition
 
                                 # Display selected concept with clickable link to web page
                                 web_url = iri_to_web_url(
                                     selected_id, st.session_state.language
                                 )
-                                
+
                                 # Get the definition to display
-                                concept_definition = st.session_state.concept_definitions.get(concept_cache_key)
-                                
+                                concept_definition = (
+                                    st.session_state.concept_definitions.get(
+                                        concept_cache_key
+                                    )
+                                )
+
                                 col_info, col_clear = st.columns([4, 1])
                                 with col_info:
                                     if concept_definition:
@@ -891,78 +910,124 @@ elif st.session_state.page == 3:
                                         )
                                     else:
                                         st.info(
-                                            f"**Selected:** {selected_label}\n\n[🔗 View on vocab.sentier.dev]({web_url})"
+                                            f"**Selected:** {selected_label}\n\n"
+                                            f"[🔗 View on vocab.sentier.dev]({web_url})"
                                         )
                                 with col_clear:
-                                    if st.button("Clear", key=f"clear_{column}", help="Remove ontology selection"):
+                                    if st.button(
+                                        "Clear",
+                                        key=f"clear_{column}",
+                                        help="Remove ontology selection",
+                                    ):
                                         # Clear the ontology mapping
-                                        st.session_state.column_mappings.pop(column, None)
+                                        st.session_state.column_mappings.pop(
+                                            column, None
+                                        )
                                         # Clear concept definition cache
-                                        st.session_state.concept_definitions.pop(concept_cache_key, None)
-                                        # Clear search field text by deleting the widget state
+                                        st.session_state.concept_definitions.pop(
+                                            concept_cache_key, None
+                                        )
+                                        # Clear search field text
                                         search_key = f"search_{column}"
                                         search_input_key = f"search_input_{column}"
                                         if search_key in st.session_state:
                                             del st.session_state[search_key]
                                         if search_input_key in st.session_state:
                                             del st.session_state[search_input_key]
-                                        # Clear all suggestions cache entries for this column
-                                        cache_keys_to_remove = [k for k in st.session_state.suggestions_cache.keys() if k.startswith(f"{column}_")]
+                                        # Clear all cache entries for this column
+                                        cache_keys_to_remove = [
+                                            k
+                                            for k in st.session_state.suggestions_cache.keys()  # noqa: E501
+                                            if k.startswith(f"{column}_")
+                                        ]
                                         for cache_key in cache_keys_to_remove:
-                                            st.session_state.suggestions_cache.pop(cache_key, None)
+                                            st.session_state.suggestions_cache.pop(
+                                                cache_key, None
+                                            )
                                         st.rerun()
-                    
+
                     # Description/Comment field - directly underneath ontology results
                     # Show for all columns but with different labels and requirements
-                    has_ontology = st.session_state.column_mappings.get(column) is not None
-                    
+                    has_ontology = (
+                        st.session_state.column_mappings.get(column) is not None
+                    )
+
                     # Check if we have a concept definition from the API
-                    concept_cache_key = f"concept_{st.session_state.column_mappings.get(column)}" if has_ontology else None
-                    concept_definition = st.session_state.concept_definitions.get(concept_cache_key) if concept_cache_key else None
-                    
+                    concept_cache_key = (
+                        f"concept_{st.session_state.column_mappings.get(column)}"
+                        if has_ontology
+                        else None
+                    )
+                    concept_definition = (
+                        st.session_state.concept_definitions.get(concept_cache_key)
+                        if concept_cache_key
+                        else None
+                    )
+
                     # Determine label and help text based on ontology status
                     if has_ontology and concept_definition:
-                        # Ontology selected with API definition - comment is optional
+                        # Ontology selected with API definition
                         description_label = "Comment (optional)"
-                        description_help = "Optional: Add additional comments or notes about this column."
+                        description_help = (
+                            "Optional: Add additional comments or "
+                            "notes about this column."
+                        )
                         is_required = False
                     elif has_ontology and not concept_definition:
-                        # Ontology selected but no API definition - description is optional
+                        # Ontology selected but no API definition
                         description_label = "Column Description (optional)"
-                        description_help = "Optional: Add a custom description for this column. The selected ontology has no description available from the API."
+                        description_help = (
+                            "Optional: Add a custom description for this column. "
+                            "The selected ontology has no description available "
+                            "from the API."
+                        )
                         is_required = False
                     else:
                         # No ontology selected - description is required
                         description_label = "Column Description *"
-                        description_help = "Required: No ontology mapping selected. Please provide a description for this column."
+                        description_help = (
+                            "Required: No ontology mapping selected. "
+                            "Please provide a description for this column."
+                        )
                         is_required = True
-                    
+
                     column_description = st.text_area(
                         description_label,
                         value=st.session_state.column_descriptions.get(column, ""),
-                        placeholder="Describe what this column represents..." if is_required else "Add optional comments or notes...",
+                        placeholder=(
+                            "Describe what this column represents..."
+                            if is_required
+                            else "Add optional comments or notes..."
+                        ),
                         help=description_help,
                         key=f"description_{column}",
-                        height=80
+                        height=80,
                     )
-                    
+
                     # Store description in session state
                     if column_description:
-                        st.session_state.column_descriptions[column] = column_description
+                        st.session_state.column_descriptions[column] = (
+                            column_description
+                        )
                     else:
                         st.session_state.column_descriptions.pop(column, None)
-                    
+
                     # Show warning only if description is required and missing
                     if is_required and not column_description:
-                        st.warning("Please provide either an ontology mapping or a description for this column.")
+                        st.warning(
+                            "Please provide either an ontology mapping or a "
+                            "description for this column."
+                        )
 
                     # If numeric, show unit search field below ontology
                     if is_numeric:
                         # Unit search field
-                        # Pre-populate with "unit" as default search term for numeric columns
+                        # Pre-populate with "unit" as default search term
                         unit_search_key = f"search_unit_{column}"
-                        default_unit_search_value = st.session_state.get(unit_search_key, "")
-                        
+                        default_unit_search_value = st.session_state.get(
+                            unit_search_key, ""
+                        )
+
                         unit_search_query = st.text_input(
                             "Search for unit",
                             value=default_unit_search_value,
@@ -970,10 +1035,10 @@ elif st.session_state.page == 3:
                             placeholder="Type and press Enter to search...",
                             label_visibility="visible",
                         )
-                        
+
                         # Show warning if no search has been made yet or no results
                         show_warning = True
-                        
+
                         # Update session state with current unit search query
                         st.session_state[unit_search_key] = unit_search_query
 
@@ -1027,7 +1092,7 @@ elif st.session_state.page == 3:
                                 if valid_suggestions:
                                     # Hide warning when selectbox is shown
                                     show_warning = False
-                                    
+
                                     options = [s["label"] for s in valid_suggestions]
                                     option_ids = [s["id"] for s in valid_suggestions]
 
@@ -1060,22 +1125,33 @@ elif st.session_state.page == 3:
                                     ] = selected_unit_id
 
                                     # Fetch concept definition for unit from API if not already cached
-                                    unit_concept_cache_key = f"concept_{selected_unit_id}"
-                                    if unit_concept_cache_key not in st.session_state.concept_definitions:
+                                    unit_concept_cache_key = (
+                                        f"concept_{selected_unit_id}"
+                                    )
+                                    if (
+                                        unit_concept_cache_key
+                                        not in st.session_state.concept_definitions
+                                    ):
                                         unit_concept_definition = fetch_concept_sync(
                                             selected_unit_id, st.session_state.language
                                         )
                                         if unit_concept_definition:
-                                            st.session_state.concept_definitions[unit_concept_cache_key] = unit_concept_definition
+                                            st.session_state.concept_definitions[
+                                                unit_concept_cache_key
+                                            ] = unit_concept_definition
 
                                     # Display selected unit with clickable link to web page
                                     web_url = iri_to_web_url(
                                         selected_unit_id, st.session_state.language
                                     )
-                                    
+
                                     # Get the definition to display
-                                    unit_concept_definition = st.session_state.concept_definitions.get(unit_concept_cache_key)
-                                    
+                                    unit_concept_definition = (
+                                        st.session_state.concept_definitions.get(
+                                            unit_concept_cache_key
+                                        )
+                                    )
+
                                     col_unit_info, col_unit_clear = st.columns([4, 1])
                                     with col_unit_info:
                                         if unit_concept_definition:
@@ -1089,24 +1165,45 @@ elif st.session_state.page == 3:
                                                 f"**Selected unit:** {selected_unit_label}\n\n[🔗 View on vocab.sentier.dev]({web_url})"
                                             )
                                     with col_unit_clear:
-                                        if st.button("Clear", key=f"clear_unit_{column}", help="Remove unit selection"):
+                                        if st.button(
+                                            "Clear",
+                                            key=f"clear_unit_{column}",
+                                            help="Remove unit selection",
+                                        ):
                                             # Clear the unit mapping
-                                            st.session_state.column_mappings.pop(f"{column}_unit", None)
+                                            st.session_state.column_mappings.pop(
+                                                f"{column}_unit", None
+                                            )
                                             # Clear concept definition cache
-                                            st.session_state.concept_definitions.pop(unit_concept_cache_key, None)
+                                            st.session_state.concept_definitions.pop(
+                                                unit_concept_cache_key, None
+                                            )
                                             # Clear unit search field text by deleting the widget state
                                             unit_search_key = f"search_unit_{column}"
-                                            unit_search_input_key = f"search_unit_input_{column}"
+                                            unit_search_input_key = (
+                                                f"search_unit_input_{column}"
+                                            )
                                             if unit_search_key in st.session_state:
                                                 del st.session_state[unit_search_key]
-                                            if unit_search_input_key in st.session_state:
-                                                del st.session_state[unit_search_input_key]
+                                            if (
+                                                unit_search_input_key
+                                                in st.session_state
+                                            ):
+                                                del st.session_state[
+                                                    unit_search_input_key
+                                                ]
                                             # Clear all unit suggestions cache entries for this column
-                                            unit_cache_keys_to_remove = [k for k in st.session_state.suggestions_cache.keys() if k.startswith(f"{column}_unit_")]
+                                            unit_cache_keys_to_remove = [
+                                                k
+                                                for k in st.session_state.suggestions_cache.keys()
+                                                if k.startswith(f"{column}_unit_")
+                                            ]
                                             for cache_key in unit_cache_keys_to_remove:
-                                                st.session_state.suggestions_cache.pop(cache_key, None)
+                                                st.session_state.suggestions_cache.pop(
+                                                    cache_key, None
+                                                )
                                             st.rerun()
-                        
+
                         # Show warning if no selectbox was displayed
                         if show_warning:
                             st.warning(
@@ -1134,11 +1231,19 @@ elif st.session_state.page == 3:
             for column in columns:
                 has_ontology = st.session_state.column_mappings.get(column) is not None
                 has_description = bool(st.session_state.column_descriptions.get(column))
-                
+
                 # Check if we have a concept definition from the API
-                concept_cache_key = f"concept_{st.session_state.column_mappings.get(column)}" if has_ontology else None
-                has_concept_definition = bool(st.session_state.concept_definitions.get(concept_cache_key)) if concept_cache_key else False
-                
+                concept_cache_key = (
+                    f"concept_{st.session_state.column_mappings.get(column)}"
+                    if has_ontology
+                    else None
+                )
+                has_concept_definition = (
+                    bool(st.session_state.concept_definitions.get(concept_cache_key))
+                    if concept_cache_key
+                    else False
+                )
+
                 # Column is valid if:
                 # 1. Has ontology with API definition (description not needed), OR
                 # 2. Has ontology without API definition (description optional per requirements), OR
@@ -1147,23 +1252,28 @@ elif st.session_state.page == 3:
                 if not has_ontology and not has_description:
                     # Missing both ontology and description
                     missing_info.append(column)
-                
+
                 # Check if numerical columns have units
                 is_numeric = pd.api.types.is_numeric_dtype(st.session_state.df[column])
                 if is_numeric:
-                    has_unit = st.session_state.column_mappings.get(f"{column}_unit") is not None
+                    has_unit = (
+                        st.session_state.column_mappings.get(f"{column}_unit")
+                        is not None
+                    )
                     if not has_unit:
                         missing_units.append(column)
-            
+
             can_proceed = len(missing_info) == 0 and len(missing_units) == 0
-            
+
             if can_proceed:
                 if st.button("Next ", type="primary", use_container_width=True):
                     # Generate view object internally (not displayed)
                     st.session_state.view_object = generate_view_object()
                     navigate_to(4)
             else:
-                st.button("Next ", type="primary", disabled=True, use_container_width=True)
+                st.button(
+                    "Next ", type="primary", disabled=True, use_container_width=True
+                )
                 error_messages = []
                 if missing_info:
                     error_messages.append(
@@ -1263,7 +1373,8 @@ elif st.session_state.page == 4:
 
     st.markdown("---")
     st.markdown("### 📝 Resource Name Configuration")
-    st.markdown("""
+    st.markdown(
+        """
 The resource name identifies your data file in the package. It must follow specific naming rules:
 - Only **lowercase letters** (a-z)
 - **Numbers** (0-9)
@@ -1271,24 +1382,29 @@ The resource name identifies your data file in the package. It must follow speci
 - No spaces or special characters
 
 **Example:** `solar-panel-data`, `emissions_2024`, `my.dataset.v1`
-    """)
-    
+    """
+    )
+
     # Initialize validator
     validator = StandardValidator()
-    
+
     # Get original filename + sheet name and check validity
     if st.session_state.file_name and st.session_state.selected_sheet:
         # Combine filename and sheet name
         file_stem = Path(st.session_state.file_name).stem
-        sheet_name = st.session_state.selected_sheet.replace(' ', '_')
+        sheet_name = st.session_state.selected_sheet.replace(" ", "_")
         original_name = f"{file_stem}_{sheet_name}"
-        is_valid_original, _, suggested_name = validator.validate_and_sanitize_resource_name(original_name)
-        
+        is_valid_original, _, suggested_name = (
+            validator.validate_and_sanitize_resource_name(original_name)
+        )
+
         # Only show the error/suggestion if not yet accepted
         if not st.session_state.resource_name_accepted:
             # Show source file and sheet info
-            st.info(f" **Source:** `{file_stem}` (file) + `{st.session_state.selected_sheet}` (sheet)")
-            
+            st.info(
+                f" **Source:** `{file_stem}` (file) + `{st.session_state.selected_sheet}` (sheet)"
+            )
+
             # Show original combined name with validation status
             if is_valid_original:
                 st.success(f"**Combined name is valid:** `{original_name}`")
@@ -1299,30 +1415,41 @@ The resource name identifies your data file in the package. It must follow speci
             else:
                 # Show the problem prominently
                 st.error(f"**Combined name has issues:** `{original_name}`")
-                
-                st.warning("""
+
+                st.warning(
+                    """
 **Issues found:**
 - Uppercase letters → converted to lowercase
 - Spaces → replaced with underscores
 - Special characters → removed
-                """)
-                
+                """
+                )
+
                 # Check if we're in edit mode or display mode
                 if not st.session_state.resource_name_editing:
                     # Display mode: show suggestion with Accept/buttons
                     st.markdown(f"**Suggested sanitized name:** `{suggested_name}`")
-                    
+
                     col1, col2, col3 = st.columns([1, 1, 2])
                     with col1:
-                        if st.button("Accept", use_container_width=True, type="primary", key="btn_accept_suggestion"):
+                        if st.button(
+                            "Accept",
+                            use_container_width=True,
+                            type="primary",
+                            key="btn_accept_suggestion",
+                        ):
                             st.session_state.resource_name = suggested_name
                             st.session_state.resource_name_confirmed = True
                             st.session_state.resource_name_accepted = True
                             st.session_state.resource_name_editing = False
-                            st.session_state.general_details["resource_name"] = suggested_name
+                            st.session_state.general_details["resource_name"] = (
+                                suggested_name
+                            )
                             st.rerun()
                     with col2:
-                        if st.button("Edit", use_container_width=True, key="btn_edit_suggestion"):
+                        if st.button(
+                            "Edit", use_container_width=True, key="btn_edit_suggestion"
+                        ):
                             st.session_state.resource_name = suggested_name
                             st.session_state.resource_name_editing = True
                             st.rerun()
@@ -1333,40 +1460,61 @@ The resource name identifies your data file in the package. It must follow speci
                         value=st.session_state.resource_name or suggested_name,
                         placeholder="my-data-resource",
                         help="the resource name. Must contain only lowercase letters, numbers, hyphens, underscores, and dots.",
-                        key="resource_name_edit_suggestion"
+                        key="resource_name_edit_suggestion",
                     )
-                    
+
                     if resource_name_edit:
-                        is_valid_edit, _, suggestion_edit = validator.validate_and_sanitize_resource_name(resource_name_edit)
-                        
+                        is_valid_edit, _, suggestion_edit = (
+                            validator.validate_and_sanitize_resource_name(
+                                resource_name_edit
+                            )
+                        )
+
                         if is_valid_edit:
                             st.success(f"**`{resource_name_edit}`** is valid!")
                         else:
-                            st.error(f"**`{resource_name_edit}`** contains invalid characters.")
+                            st.error(
+                                f"**`{resource_name_edit}`** contains invalid characters."
+                            )
                             st.markdown(f"**Suggested fix:** `{suggestion_edit}`")
-                        
+
                         # Show buttons for editing
                         col1, col2, col3 = st.columns([1, 1, 2])
                         with col1:
-                            if st.button("Accept", use_container_width=True, type="primary", key="btn_accept_edit", disabled=not is_valid_edit):
+                            if st.button(
+                                "Accept",
+                                use_container_width=True,
+                                type="primary",
+                                key="btn_accept_edit",
+                                disabled=not is_valid_edit,
+                            ):
                                 st.session_state.resource_name = resource_name_edit
                                 st.session_state.resource_name_confirmed = True
                                 st.session_state.resource_name_accepted = True
                                 st.session_state.resource_name_editing = False
-                                st.session_state.general_details["resource_name"] = resource_name_edit
+                                st.session_state.general_details["resource_name"] = (
+                                    resource_name_edit
+                                )
                                 st.rerun()
                         with col2:
-                            if st.button("Cancel", use_container_width=True, key="btn_cancel_edit"):
+                            if st.button(
+                                "Cancel",
+                                use_container_width=True,
+                                key="btn_cancel_edit",
+                            ):
                                 st.session_state.resource_name_editing = False
                                 st.rerun()
-    
+
     # Show resource name input (either already accepted or for manual editing)
     # Only show input section if name has been accepted or is being manually entered
     if st.session_state.resource_name_accepted or st.session_state.resource_name:
         st.markdown("---")
-        
+
         # If accepted, show as info with option to edit
-        if st.session_state.resource_name_accepted and st.session_state.resource_name_confirmed:
+        if (
+            st.session_state.resource_name_accepted
+            and st.session_state.resource_name_confirmed
+        ):
             st.success(f"**Resource name:** `{st.session_state.resource_name}`")
             if st.button("Resource Name", key="btn_edit_resource_name"):
                 st.session_state.resource_name_accepted = False
@@ -1379,56 +1527,98 @@ The resource name identifies your data file in the package. It must follow speci
                 value=st.session_state.resource_name or "",
                 placeholder="my-data-resource",
                 help="Enter or edit the resource name. Must follow the naming rules above. (Required)",
-                key="resource_name_input_meta"
+                key="resource_name_input_meta",
             )
-            
+
             # Validate the entered/edited name in real-time
             if resource_name_input:
-                is_valid_input, _, suggestion = validator.validate_and_sanitize_resource_name(resource_name_input)
-                
+                is_valid_input, _, suggestion = (
+                    validator.validate_and_sanitize_resource_name(resource_name_input)
+                )
+
                 if is_valid_input:
                     st.success(f"**`{resource_name_input}`** is a valid resource name!")
                     # Show accept button for valid name
                     col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 2])
                     with col_btn1:
-                        if st.button("Accept", use_container_width=True, type="primary", key="btn_accept_manual"):
+                        if st.button(
+                            "Accept",
+                            use_container_width=True,
+                            type="primary",
+                            key="btn_accept_manual",
+                        ):
                             st.session_state.resource_name = resource_name_input
                             st.session_state.resource_name_confirmed = True
                             st.session_state.resource_name_accepted = True
-                            st.session_state.general_details["resource_name"] = resource_name_input
+                            st.session_state.general_details["resource_name"] = (
+                                resource_name_input
+                            )
                             st.rerun()
                     with col_btn2:
-                        if st.button("Reset", help="Reset to sanitized filename + sheet", use_container_width=True, key="btn_reset"):
-                            if st.session_state.file_name and st.session_state.selected_sheet:
+                        if st.button(
+                            "Reset",
+                            help="Reset to sanitized filename + sheet",
+                            use_container_width=True,
+                            key="btn_reset",
+                        ):
+                            if (
+                                st.session_state.file_name
+                                and st.session_state.selected_sheet
+                            ):
                                 file_stem = Path(st.session_state.file_name).stem
-                                sheet_name = st.session_state.selected_sheet.replace(' ', '_')
+                                sheet_name = st.session_state.selected_sheet.replace(
+                                    " ", "_"
+                                )
                                 original_name = f"{file_stem}_{sheet_name}"
-                                st.session_state.resource_name = validator.sanitize_resource_name(original_name)
+                                st.session_state.resource_name = (
+                                    validator.sanitize_resource_name(original_name)
+                                )
                                 st.session_state.resource_name_accepted = False
                                 st.rerun()
                 else:
-                    st.error(f"**`{resource_name_input}`** contains invalid characters.")
+                    st.error(
+                        f"**`{resource_name_input}`** contains invalid characters."
+                    )
                     st.markdown(f"**Suggested fix:** `{suggestion}`")
-                    
+
                     # Show buttons for invalid name
                     col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 2])
                     with col_btn1:
-                        if st.button("Use Suggestion", use_container_width=True, type="primary", key="btn_use_suggestion"):
+                        if st.button(
+                            "Use Suggestion",
+                            use_container_width=True,
+                            type="primary",
+                            key="btn_use_suggestion",
+                        ):
                             st.session_state.resource_name = suggestion
                             st.session_state.resource_name_accepted = True
                             st.session_state.resource_name_confirmed = True
-                            st.session_state.general_details["resource_name"] = suggestion
+                            st.session_state.general_details["resource_name"] = (
+                                suggestion
+                            )
                             st.rerun()
                     with col_btn2:
-                        if st.button("Reset", help="Reset to sanitized filename + sheet", use_container_width=True, key="btn_reset_invalid"):
-                            if st.session_state.file_name and st.session_state.selected_sheet:
+                        if st.button(
+                            "Reset",
+                            help="Reset to sanitized filename + sheet",
+                            use_container_width=True,
+                            key="btn_reset_invalid",
+                        ):
+                            if (
+                                st.session_state.file_name
+                                and st.session_state.selected_sheet
+                            ):
                                 file_stem = Path(st.session_state.file_name).stem
-                                sheet_name = st.session_state.selected_sheet.replace(' ', '_')
+                                sheet_name = st.session_state.selected_sheet.replace(
+                                    " ", "_"
+                                )
                                 original_name = f"{file_stem}_{sheet_name}"
-                                st.session_state.resource_name = validator.sanitize_resource_name(original_name)
+                                st.session_state.resource_name = (
+                                    validator.sanitize_resource_name(original_name)
+                                )
                                 st.session_state.resource_name_accepted = False
                                 st.rerun()
-                    
+
                     st.session_state.resource_name_confirmed = False
                     st.session_state.general_details.pop("resource_name", None)
             else:
@@ -1768,9 +1958,7 @@ The resource name identifies your data file in the package. It must follow speci
         )
         all_valid = all_valid and is_valid
     if "homepage" in st.session_state.general_details:
-        is_valid, _ = schema.validate_url(
-            st.session_state.general_details["homepage"]
-        )
+        is_valid, _ = schema.validate_url(st.session_state.general_details["homepage"])
         all_valid = all_valid and is_valid
     if "repository" in st.session_state.general_details:
         is_valid, _ = schema.validate_url(
@@ -1816,8 +2004,8 @@ The resource name identifies your data file in the package. It must follow speci
                         with tempfile.NamedTemporaryFile(
                             delete=False, suffix=".parquet"
                         ) as tmp:
-                            output_path, quality_level, validation_result = exporter.export(
-                                tmp.name
+                            output_path, quality_level, validation_result = (
+                                exporter.export(tmp.name)
                             )
 
                             # Store in session state for display
@@ -1836,7 +2024,10 @@ The resource name identifies your data file in the package. It must follow speci
                         st.session_state.export_complete = False
         else:
             st.button(
-                "📦 Generate Parquet File", type="primary", disabled=True, use_container_width=True
+                "📦 Generate Parquet File",
+                type="primary",
+                disabled=True,
+                use_container_width=True,
             )
             if not has_required_fields:
                 st.caption(
@@ -1849,7 +2040,7 @@ The resource name identifies your data file in the package. It must follow speci
 # Page 5: Review Parquet File
 elif st.session_state.page == 5:
     st.title("Step 5: Review Parquet File")
-    
+
     # Only show results if export is complete
     if st.session_state.get("export_complete", False):
         st.balloons()
@@ -1874,7 +2065,9 @@ elif st.session_state.page == 5:
         st.dataframe(exported_df.head(10), use_container_width=True)
 
         # Get export name from session state
-        export_name = st.session_state.get("export_name", f"{st.session_state.general_details['name']}.parquet")
+        export_name = st.session_state.get(
+            "export_name", f"{st.session_state.general_details['name']}.parquet"
+        )
 
         # Offer download
         st.markdown("### Downloads")
@@ -1893,10 +2086,8 @@ elif st.session_state.page == 5:
         if st.session_state.get("validation_result") and st.session_state.get(
             "exporter"
         ):
-            validation_report = (
-                st.session_state.exporter.generate_validation_report(
-                    st.session_state.validation_result
-                )
+            validation_report = st.session_state.exporter.generate_validation_report(
+                st.session_state.validation_result
             )
 
             report_filename = (
@@ -1913,9 +2104,7 @@ elif st.session_state.page == 5:
 
         # Config downloads
         st.markdown("### Configuration Files")
-        st.markdown(
-            "Download reusable configuration files for reproducible processing"
-        )
+        st.markdown("Download reusable configuration files for reproducible processing")
 
         # Build configs from session state
         mapping_config = build_mapping_config(
@@ -1967,7 +2156,9 @@ elif st.session_state.page == 5:
             )
     else:
         # If no export has been completed, show message and back button
-        st.info("No parquet file has been generated yet. Please go back to page 4 and click 'Generate Parquet File'.")
+        st.info(
+            "No parquet file has been generated yet. Please go back to page 4 and click 'Generate Parquet File'."
+        )
 
     # Navigation
     st.markdown("---")

@@ -12,7 +12,7 @@ from trailpack.packing.datapackage_schema import (
     Unit,
     Resource,
     MetaDataBuilder,
-    DataPackageSchema
+    DataPackageSchema,
 )
 from trailpack.packing.packing import Packing
 from trailpack.validation.standard_validator import StandardValidator
@@ -30,7 +30,7 @@ class DataPackageExporter:
         file_name: str,
         suggestions_cache: Dict[str, List] = None,
         column_descriptions: Dict[str, str] = None,
-        standard_version: str = "1.0.0"
+        standard_version: str = "1.0.0",
     ):
         """
         Initialize with UI session state data.
@@ -77,37 +77,37 @@ class DataPackageExporter:
     def _sanitize_resource_name(self, name: str) -> str:
         """
         Sanitize resource name to match the pattern ^[a-z0-9\\-_\\.]+$.
-        
+
         The resource name must only contain:
         - Lowercase letters (a-z)
         - Numbers (0-9)
         - Hyphens (-)
         - Underscores (_)
         - Dots (.)
-        
+
         Args:
             name: Raw name string to sanitize
-            
+
         Returns:
             Sanitized name matching the required pattern
         """
         # Convert to lowercase
         name = name.lower()
-        
+
         # Replace spaces with underscores
-        name = name.replace(' ', '_')
-        
+        name = name.replace(" ", "_")
+
         # Remove or replace invalid characters
         # Keep only lowercase letters, numbers, hyphens, underscores, and dots
-        name = re.sub(r'[^a-z0-9\-_.]', '', name)
-        
+        name = re.sub(r"[^a-z0-9\-_.]", "", name)
+
         # Ensure name doesn't start or end with dots
-        name = name.strip('.')
-        
+        name = name.strip(".")
+
         # Ensure name is not empty after sanitization
         if not name:
             name = "resource"
-        
+
         return name
 
     def build_fields(self) -> List[Field]:
@@ -129,29 +129,31 @@ class DataPackageExporter:
                     # Find label from suggestions cache
                     unit_label = self._find_label_for_id(unit_id)
                     unit = Unit(
-                        name=unit_label or unit_id.split('/')[-1],
+                        name=unit_label or unit_id.split("/")[-1],
                         long_name=unit_label,
-                        path=unit_id
+                        path=unit_id,
                     )
 
             # Handle numeric fields without unit - use dimensionless
-            if field_type in ['number', 'integer'] and not unit:
+            if field_type in ["number", "integer"] and not unit:
                 unit = Unit(
                     name="NUM",
                     long_name="dimensionless number",
-                    path="https://vocab.sentier.dev/units/unit/NUM"
+                    path="https://vocab.sentier.dev/units/unit/NUM",
                 )
 
             # Get description/comment from user input or use default
-            description = self.column_descriptions.get(column, f"Column from {self.sheet_name}")
-            
+            description = self.column_descriptions.get(
+                column, f"Column from {self.sheet_name}"
+            )
+
             field = Field(
                 name=column,
                 type=field_type,
                 description=description,
                 unit=unit,
                 rdf_type=ontology_id,
-                taxonomy_url=ontology_id if ontology_id else None
+                taxonomy_url=ontology_id if ontology_id else None,
             )
             fields.append(field)
 
@@ -167,12 +169,14 @@ class DataPackageExporter:
             name=resource_name,
             path=f"{resource_name}.parquet",
             title=self.general_details.get("title", self.file_name),
-            description=self.general_details.get("description", f"Data from {self.sheet_name}"),
+            description=self.general_details.get(
+                "description", f"Data from {self.sheet_name}"
+            ),
             format="parquet",
             mediatype="application/vnd.apache.parquet",
             encoding="utf-8",
             profile="tabular-data-resource",
-            fields=fields
+            fields=fields,
         )
 
     def build_metadata(self, resource: Resource) -> Dict[str, Any]:
@@ -227,7 +231,9 @@ class DataPackageExporter:
 
         return builder.build()
 
-    def export(self, output_path: str, validate_standard: bool = True) -> Tuple[str, Optional[str], Optional[Any]]:
+    def export(
+        self, output_path: str, validate_standard: bool = True
+    ) -> Tuple[str, Optional[str], Optional[Any]]:
         """
         Execute full export workflow and write Parquet.
 
@@ -266,9 +272,7 @@ class DataPackageExporter:
         validation_result = None
         if validate_standard:
             validation_result = self.validator.validate_all(
-                metadata=metadata,
-                df=self.df,
-                mappings=self.column_mappings
+                metadata=metadata, df=self.df, mappings=self.column_mappings
             )
 
             # Check if validation passed
@@ -276,7 +280,9 @@ class DataPackageExporter:
                 error_msg = self._format_validation_errors(validation_result)
                 raise ValueError(error_msg)
 
-            quality_level = validation_result.level  # "STRICT", "STANDARD", "BASIC", or "INVALID"
+            quality_level = (
+                validation_result.level
+            )  # "STRICT", "STANDARD", "BASIC", or "INVALID"
 
         # Write to Parquet
         packer = Packing(data=self.df, meta_data=metadata)
@@ -294,7 +300,7 @@ class DataPackageExporter:
 
         for column in df.columns:
             # Check for mixed types in object columns
-            if df[column].dtype == 'object':
+            if df[column].dtype == "object":
                 non_null_values = df[column].dropna()
                 if len(non_null_values) == 0:
                     continue
@@ -306,7 +312,9 @@ class DataPackageExporter:
                     type_names = [t.__name__ for t in types]
                     sample_values = []
                     for t in types:
-                        sample = non_null_values[non_null_values.apply(type) == t].iloc[0]
+                        sample = non_null_values[non_null_values.apply(type) == t].iloc[
+                            0
+                        ]
                         sample_values.append(f"{t.__name__}: {repr(sample)}")
 
                     errors.append(
@@ -316,7 +324,9 @@ class DataPackageExporter:
                     )
 
         if errors:
-            error_message = "Data quality issues found that prevent Parquet conversion:\n\n"
+            error_message = (
+                "Data quality issues found that prevent Parquet conversion:\n\n"
+            )
             error_message += "\n\n".join(f"{i+1}. {e}" for i, e in enumerate(errors))
             error_message += "\n\nPlease clean your data and try again."
             raise ValueError(error_message)
@@ -340,11 +350,11 @@ class DataPackageExporter:
             for s in suggestions:
                 try:
                     if isinstance(s, dict):
-                        s_id = s.get('id') or s.get('id_') or s.get('uri')
-                        s_label = s.get('label') or s.get('name')
+                        s_id = s.get("id") or s.get("id_") or s.get("uri")
+                        s_label = s.get("label") or s.get("name")
                     else:
-                        s_id = getattr(s, 'id', None) or getattr(s, 'id_', None)
-                        s_label = getattr(s, 'label', None) or getattr(s, 'name', None)
+                        s_id = getattr(s, "id", None) or getattr(s, "id_", None)
+                        s_label = getattr(s, "label", None) or getattr(s, "name", None)
 
                     if str(s_id) == str(concept_id):
                         return str(s_label) if s_label else None
@@ -407,7 +417,9 @@ class DataPackageExporter:
         if validation_result.level:
             lines.append(f"\nValidation Level: {validation_result.level}")
 
-        lines.append(f"\nValidation Status: {'PASSED' if validation_result.is_valid else 'FAILED'}")
+        lines.append(
+            f"\nValidation Status: {'PASSED' if validation_result.is_valid else 'FAILED'}"
+        )
 
         # Summary
         lines.append("\n" + "=" * 80)
