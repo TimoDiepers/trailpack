@@ -129,3 +129,7 @@ dmypy.json
 .pyre/
 
 /trailpack/data/*
+
+# Generated example output files
+concatenated_mass_data.parquet
+concatenated_mass_data_metadata.json
