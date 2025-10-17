@@ -9,8 +9,11 @@ For advanced users, the moficiation directly via code is accessible by installin
 
 A simple example on how to use the web-application is included below. First loading a data excel file and linking the ontologies...
 
-![](../uploading_and_ontology_streamlit-streamlit_app-2025-10-17-08-10-31.webm)
-
+<video width="320" height="240" controls>
+  <source src="../uploading_and_ontology_streamlit-streamlit_app-2025-10-17-08-10-31.webm" type="video/webm">
+</video>
 and adding the general metadata towards generating the full pqrquet file.
 
-![](../general_metadata_to_download_streamlit-streamlit_app-2025-10-17-08-10-00.webm)
+<video width="320" height="240" controls>
+  <source src="../general_metadata_to_download_streamlit-streamlit_app-2025-10-17-08-10-00.webm" type="video/webm">
+</video>
