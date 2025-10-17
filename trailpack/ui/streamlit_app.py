@@ -245,6 +245,27 @@ def sanitize_search_query(query: str) -> str:
     return sanitized
 
 
+def extract_first_word(query: str) -> str:
+    """
+    Extract the first word from a string, stopping at the first space.
+    
+    This is used to populate search fields with just the first word of a column name
+    instead of the entire name, making searches more focused.
+    
+    Args:
+        query: The input string
+        
+    Returns:
+        The first word (substring up to first space), or empty string if input is empty
+    """
+    if not query:
+        return ""
+    
+    # Split at first space and take the first part
+    parts = query.split(' ', 1)
+    return parts[0] if parts else ""
+
+
 def load_excel_data(sheet_name: str) -> pd.DataFrame:
     """Load Excel data into a pandas DataFrame using SmartDataReader."""
     if st.session_state.temp_path is None:
@@ -712,19 +733,20 @@ elif st.session_state.page == 3:
             # Show a brief loading message while pre-fetching
             with st.spinner("Pre-loading ontology suggestions for columns..."):
                 for column in columns:
-                    # Initialize search query with sanitized column name
-                    # Sanitize early so the search field displays clean text
+                    # Initialize search query with first word of sanitized column name
+                    # This makes search more focused than using the entire column name
                     search_key = f"search_{column}"
                     if search_key not in st.session_state:
                         sanitized_column = sanitize_search_query(column)
-                        st.session_state[search_key] = sanitized_column
+                        first_word = extract_first_word(sanitized_column)
+                        st.session_state[search_key] = first_word
                     
-                    # Pre-fetch suggestions for sanitized column name
+                    # Pre-fetch suggestions for the first word
                     # Use explicit cache key format for pre-populated suggestions
-                    sanitized_column = st.session_state[search_key]
-                    cache_key = f"{column}_{sanitized_column}"  # {column}_{search_query} where search_query == sanitized column
+                    first_word = st.session_state[search_key]
+                    cache_key = f"{column}_{first_word}"  # {column}_{search_query} where search_query == first word
                     if cache_key not in st.session_state.suggestions_cache:
-                        suggestions = fetch_suggestions_sync(sanitized_column, st.session_state.language)
+                        suggestions = fetch_suggestions_sync(first_word, st.session_state.language)
                         st.session_state.suggestions_cache[cache_key] = suggestions[:5]
             
             # Mark this sheet as initialized
@@ -754,9 +776,9 @@ elif st.session_state.page == 3:
                     )
 
                     # Ontology search field (for all columns)
-                    # Pre-populate with sanitized column name if not manually changed
+                    # Use the value from session state without fallback to avoid re-populating after clear
                     search_key = f"search_{column}"
-                    default_search_value = st.session_state.get(search_key, sanitize_search_query(column))
+                    default_search_value = st.session_state.get(search_key, "")
                     
                     search_query = st.text_input(
                         "Search for ontology",
