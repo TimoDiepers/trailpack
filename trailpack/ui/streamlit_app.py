@@ -812,19 +812,18 @@ elif st.session_state.page == 3:
 
                     # If numeric, show unit search field below ontology
                     if is_numeric:
-                        # Show warning that unit is required
-                        st.warning(
-                            "⚠️ **Unit required:** This column contains numerical data "
-                            "and requires a unit to be selected. The Next button will "
-                            "be disabled until a unit is selected."
-                        )
-
                         # Unit search field
                         unit_search_query = st.text_input(
                             "Search for unit",
                             key=f"search_unit_{column}",
                             placeholder="Type and press Enter to search...",
                             label_visibility="visible",
+                        )
+
+                        # Show warning that unit is required
+                        st.warning(
+                            "This column contains numerical data and requires a unit "
+                            "to be selected."
                         )
 
                         # Fetch and display unit suggestions
