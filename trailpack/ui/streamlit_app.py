@@ -206,10 +206,43 @@ def on_sheet_change():
     # This runs BEFORE the page renders, so sidebar will show updated sheet name
     selected = st.session_state.get("sheet_radio")
     if selected and selected != st.session_state.selected_sheet:
+        old_sheet = st.session_state.selected_sheet
         st.session_state.selected_sheet = selected
         st.session_state.suggestions_cache = {}
         st.session_state.column_mappings = {}
         st.session_state.view_object = {}
+        # Clear search queries initialized flag for the old sheet only
+        # This allows returning to this sheet to re-fetch suggestions
+        if "search_queries_initialized" in st.session_state and old_sheet:
+            st.session_state.search_queries_initialized.pop(old_sheet, None)
+
+
+def sanitize_search_query(query: str) -> str:
+    """
+    Sanitize search query for safe API calls.
+    
+    Replaces special characters that might cause issues with the PyST API.
+    Converts problematic characters to spaces and cleans up the result.
+    
+    Args:
+        query: The original search query string
+        
+    Returns:
+        Sanitized query string safe for API calls
+    """
+    import re
+    
+    # Replace forward slashes, backslashes, and other special characters with spaces
+    # Keep alphanumeric, spaces, hyphens, underscores, and periods
+    sanitized = re.sub(r'[^\w\s\-.]', ' ', query)
+    
+    # Collapse multiple spaces into single space
+    sanitized = re.sub(r'\s+', ' ', sanitized)
+    
+    # Strip leading/trailing whitespace
+    sanitized = sanitized.strip()
+    
+    return sanitized
 
 
 def load_excel_data(sheet_name: str) -> pd.DataFrame:
@@ -238,8 +271,16 @@ async def fetch_suggestions_async(
 ) -> List[Dict[str, str]]:
     """Fetch PyST suggestions for a column name."""
     try:
+        # Sanitize the search query to prevent API errors from special characters
+        sanitized_query = sanitize_search_query(column_name)
+        
+        # Skip if sanitization resulted in empty string
+        if not sanitized_query:
+            st.warning(f"Column name '{column_name}' could not be sanitized for search")
+            return []
+        
         client = get_suggest_client()
-        suggestions = await client.suggest(column_name, language)
+        suggestions = await client.suggest(sanitized_query, language)
 
         # Debug: Log first suggestion structure to understand response format
         if suggestions and len(suggestions) > 0:
@@ -661,6 +702,34 @@ elif st.session_state.page == 3:
         # Display column mappings in a clean table-like format
         st.markdown("---")
 
+        # Pre-populate search queries with column names on first load of the sheet
+        if "search_queries_initialized" not in st.session_state:
+            st.session_state.search_queries_initialized = {}
+        
+        # Initialize search queries for this sheet if not already done
+        sheet_key = st.session_state.selected_sheet
+        if sheet_key not in st.session_state.search_queries_initialized:
+            # Show a brief loading message while pre-fetching
+            with st.spinner("Pre-loading ontology suggestions for columns..."):
+                for column in columns:
+                    # Initialize search query with sanitized column name
+                    # Sanitize early so the search field displays clean text
+                    search_key = f"search_{column}"
+                    if search_key not in st.session_state:
+                        sanitized_column = sanitize_search_query(column)
+                        st.session_state[search_key] = sanitized_column
+                    
+                    # Pre-fetch suggestions for sanitized column name
+                    # Use explicit cache key format for pre-populated suggestions
+                    sanitized_column = st.session_state[search_key]
+                    cache_key = f"{column}_{sanitized_column}"  # {column}_{search_query} where search_query == sanitized column
+                    if cache_key not in st.session_state.suggestions_cache:
+                        suggestions = fetch_suggestions_sync(sanitized_column, st.session_state.language)
+                        st.session_state.suggestions_cache[cache_key] = suggestions[:5]
+            
+            # Mark this sheet as initialized
+            st.session_state.search_queries_initialized[sheet_key] = True
+
         for column in columns:
             with st.container():
                 col1, col2 = st.columns([1, 2])
@@ -685,12 +754,20 @@ elif st.session_state.page == 3:
                     )
 
                     # Ontology search field (for all columns)
+                    # Pre-populate with sanitized column name if not manually changed
+                    search_key = f"search_{column}"
+                    default_search_value = st.session_state.get(search_key, sanitize_search_query(column))
+                    
                     search_query = st.text_input(
                         "Search for ontology",
-                        key=f"search_{column}",
+                        value=default_search_value,
+                        key=f"search_input_{column}",
                         placeholder="Type and press Enter to search...",
                         label_visibility="visible",
                     )
+                    
+                    # Update session state with current search query
+                    st.session_state[search_key] = search_query
 
                     # Fetch and display ontology suggestions
                     if search_query and len(search_query) >= 2:
@@ -802,8 +879,11 @@ elif st.session_state.page == 3:
                                         st.session_state.concept_definitions.pop(concept_cache_key, None)
                                         # Clear search field text by deleting the widget state
                                         search_key = f"search_{column}"
+                                        search_input_key = f"search_input_{column}"
                                         if search_key in st.session_state:
                                             del st.session_state[search_key]
+                                        if search_input_key in st.session_state:
+                                            del st.session_state[search_input_key]
                                         # Clear all suggestions cache entries for this column
                                         cache_keys_to_remove = [k for k in st.session_state.suggestions_cache.keys() if k.startswith(f"{column}_")]
                                         for cache_key in cache_keys_to_remove:
@@ -813,9 +893,14 @@ elif st.session_state.page == 3:
                     # If numeric, show unit search field below ontology
                     if is_numeric:
                         # Unit search field
+                        # Pre-populate with "unit" as default search term for numeric columns
+                        unit_search_key = f"search_unit_{column}"
+                        default_unit_search_value = st.session_state.get(unit_search_key, "")
+                        
                         unit_search_query = st.text_input(
                             "Search for unit",
-                            key=f"search_unit_{column}",
+                            value=default_unit_search_value,
+                            key=f"search_unit_input_{column}",
                             placeholder="Type and press Enter to search...",
                             label_visibility="visible",
                         )
@@ -823,6 +908,9 @@ elif st.session_state.page == 3:
                         # Show warning if no search has been made yet or no results
                         show_warning = True
                         
+                        # Update session state with current unit search query
+                        st.session_state[unit_search_key] = unit_search_query
+
                         # Fetch and display unit suggestions
                         if unit_search_query and len(unit_search_query) >= 2:
                             cache_key = f"{column}_unit_{unit_search_query}"
@@ -942,8 +1030,11 @@ elif st.session_state.page == 3:
                                             st.session_state.concept_definitions.pop(unit_concept_cache_key, None)
                                             # Clear unit search field text by deleting the widget state
                                             unit_search_key = f"search_unit_{column}"
+                                            unit_search_input_key = f"search_unit_input_{column}"
                                             if unit_search_key in st.session_state:
                                                 del st.session_state[unit_search_key]
+                                            if unit_search_input_key in st.session_state:
+                                                del st.session_state[unit_search_input_key]
                                             # Clear all unit suggestions cache entries for this column
                                             unit_cache_keys_to_remove = [k for k in st.session_state.suggestions_cache.keys() if k.startswith(f"{column}_unit_")]
                                             for cache_key in unit_cache_keys_to_remove:
