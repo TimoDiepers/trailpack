@@ -712,16 +712,19 @@ elif st.session_state.page == 3:
             # Show a brief loading message while pre-fetching
             with st.spinner("Pre-loading ontology suggestions for columns..."):
                 for column in columns:
-                    # Initialize search query with column name
+                    # Initialize search query with sanitized column name
+                    # Sanitize early so the search field displays clean text
                     search_key = f"search_{column}"
                     if search_key not in st.session_state:
-                        st.session_state[search_key] = column
+                        sanitized_column = sanitize_search_query(column)
+                        st.session_state[search_key] = sanitized_column
                     
-                    # Pre-fetch suggestions for column name
+                    # Pre-fetch suggestions for sanitized column name
                     # Use explicit cache key format for pre-populated suggestions
-                    cache_key = f"{column}_{column}"  # {column}_{search_query} where search_query == column
+                    sanitized_column = st.session_state[search_key]
+                    cache_key = f"{column}_{sanitized_column}"  # {column}_{search_query} where search_query == sanitized column
                     if cache_key not in st.session_state.suggestions_cache:
-                        suggestions = fetch_suggestions_sync(column, st.session_state.language)
+                        suggestions = fetch_suggestions_sync(sanitized_column, st.session_state.language)
                         st.session_state.suggestions_cache[cache_key] = suggestions[:5]
             
             # Mark this sheet as initialized
@@ -751,9 +754,9 @@ elif st.session_state.page == 3:
                     )
 
                     # Ontology search field (for all columns)
-                    # Pre-populate with column name if not manually changed
+                    # Pre-populate with sanitized column name if not manually changed
                     search_key = f"search_{column}"
-                    default_search_value = st.session_state.get(search_key, column)
+                    default_search_value = st.session_state.get(search_key, sanitize_search_query(column))
                     
                     search_query = st.text_input(
                         "Search for ontology",
