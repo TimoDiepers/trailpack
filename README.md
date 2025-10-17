@@ -63,9 +63,8 @@ For walkthrough videos demonstrating the workflow, see the [documentation](https
 
 You can also run the Streamlit UI locally:
 
-```bash
-# Run the UI
-trailpack ui
+```console
+$ trailpack ui
 ```
 
 For more details, see [trailpack/ui/README.md](trailpack/ui/README.md).
