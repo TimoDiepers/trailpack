@@ -72,23 +72,6 @@ For more details, see [trailpack/ui/README.md](trailpack/ui/README.md).
 
 **Deploying to Streamlit Cloud?** See [STREAMLIT_DEPLOYMENT.md](STREAMLIT_DEPLOYMENT.md) for complete deployment instructions.
 
-### Python API
-
-For advanced users and programmatic workflows, you can use Trailpack directly in Python. See the [example notebook](https://github.com/TimoDiepers/trailpack/blob/main/examples/example_packing.ipynb) for a complete walkthrough.
-
-```python
-from trailpack.excel import ExcelReader
-from trailpack.pyst.api.client import get_suggest_client
-
-# Read Excel structure
-reader = ExcelReader("data.xlsx")
-sheets = reader.sheets()
-columns = reader.columns("Sheet1")
-
-# Get PyST suggestions
-client = get_suggest_client()
-suggestions = await client.suggest("carbon footprint", "en")
-```
 ## 📦 DataPackage Schema Classes
 
 Trailpack includes comprehensive schema classes for building [Frictionless Data Package](https://datapackage.org/standard/data-package/) metadata:
@@ -117,13 +100,6 @@ from trailpack.packing import Packing
 packer = Packing(df, metadata)
 packer.write_parquet("output.parquet")
 ```
-
-### UI Integration
-The schema classes provide everything needed for UI frameworks:
-- Field definitions with types, labels, validation patterns
-- Enumerated options for dropdowns (licenses, profiles, etc.)
-- Built-in validation methods
-- Error messages for invalid input
 
 ## 🔍 Validation System
 
