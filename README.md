@@ -19,6 +19,23 @@
 [pre-commit]: https://github.com/pre-commit/pre-commit
 [black]: https://github.com/psf/black
 
+---
+
+**Trailpack proposes a standard way to link data and specialized metadata in one single file.** It provides a simple interface to link metadata to fixed ontologies, improving the accessibility and comparability of datasets from different sources.
+
+## What is Trailpack?
+
+Trailpack combines metadata and data into a single [Parquet](https://parquet.apache.org/) file, making open data more accessible and sustainable. It validates metadata against developed standards including:
+
+- **General metadata** for the data package (name, license, contributors)
+- **Specialized metadata** for each data column - linking both column names and units to fixed descriptions in ontologies provided by [PyST](https://vocab.sentier.dev)
+
+The developed standard expands on and is compatible with the [Frictionless Data Package](https://datapackage.org/) specification. The metadata is included under the `datapackage.json` keyword in the Parquet file.
+
+The output file is readable using [PyArrow](https://arrow.apache.org/docs/python/index.html) and other data handlers - and will be compatible and consumable using [Sentier data tools](https://github.com/sentier-dev/sentier_data_tools).
+
+**Origin:** Trailpack was initially built during the hackathon of Brightcon 2025 in Grenoble, as part of developing the standard data format for [Départ de Sentier](https://www.d-d-s.ch/).
+
 ## Installation
 
 You can install _trailpack_ via [pip] from [PyPI]:
@@ -27,27 +44,32 @@ You can install _trailpack_ via [pip] from [PyPI]:
 $ pip install trailpack
 ```
 
+[pip]: https://pip.pypa.io/
+[PyPI]: https://pypi.org/
+
 ## Usage
 
-### Web UI
+### Web Application
 
-Trailpack includes a Streamlit-based web UI for mapping Excel columns to PyST concepts:
+The easiest way to use Trailpack is through the **[web application](https://trailpack.streamlit.app/)**.
+
+The web app provides a step-by-step workflow:
+1. **Upload File & Select Language**: Upload an Excel file and select language for PyST mapping
+2. **Select Sheet**: Choose which sheet to process with data preview
+3. **Map Columns**: Map each column to PyST concepts with automatic suggestions
+4. **General Details**: Provide package metadata (name, title, license, contributors)
+5. **Download**: Get your standardized Parquet file with embedded metadata
+
+For walkthrough videos demonstrating the workflow, see the [documentation](https://trailpack.readthedocs.io/en/latest/content/usage.html).
+
+### Local Web UI
+
+You can also run the Streamlit UI locally:
 
 ```bash
 # Run the UI
 trailpack ui
 ```
-
-The UI provides a step-by-step workflow with smooth transitions:
-1. **Upload File & Select Language**: Upload an Excel file and select language for PyST mapping
-2. **Select Sheet**: Choose which sheet to process with data preview
-3. **Map Columns**: Map each column to PyST concepts with automatic suggestions and dataframe preview
-4. **General Details**: Provide package metadata including:
-   - Basic information (name, title, description, version)
-   - **Resource name** with automatic sanitization and validation
-   - Licenses, contributors, and data sources
-
-The view object is stored internally for further processing.
 
 For more details, see [trailpack/ui/README.md](trailpack/ui/README.md).
 
@@ -55,7 +77,7 @@ For more details, see [trailpack/ui/README.md](trailpack/ui/README.md).
 
 ### Python API
 
-You can also use trailpack programmatically:
+For advanced users and programmatic workflows, you can use Trailpack directly in Python. See the [example notebook](https://github.com/TimoDiepers/trailpack/blob/main/examples/example_packing.ipynb) for a complete walkthrough.
 
 ```python
 from trailpack.excel import ExcelReader
@@ -70,9 +92,9 @@ columns = reader.columns("Sheet1")
 client = get_suggest_client()
 suggestions = await client.suggest("carbon footprint", "en")
 ```
-## UI-Ready DataPackage Schema Classes
+## 📦 DataPackage Schema Classes
 
-This project now includes comprehensive schema classes for building [data package](https://datapackage.org/standard/data-package/) metadata through user interfaces:
+Trailpack includes comprehensive schema classes for building [Frictionless Data Package](https://datapackage.org/standard/data-package/) metadata:
 
 ### Key Features
 - **`DataPackageSchema`**: Defines field types, validation rules, and UI configuration
@@ -83,7 +105,7 @@ This project now includes comprehensive schema classes for building [data packag
 
 ### Quick Example
 ```python
-from trailpack.datapackage_schema import MetaDataBuilder, Resource, Field
+from trailpack.packing.datapackage_schema import MetaDataBuilder, Resource
 
 # Create metadata with fluent interface
 metadata = (MetaDataBuilder()
@@ -93,7 +115,7 @@ metadata = (MetaDataBuilder()
     .add_resource(Resource(name="data", path="data.parquet"))
     .build())
 
-# Use with existing Packing class
+# Use with Packing class
 from trailpack.packing import Packing
 packer = Packing(df, metadata)
 packer.write_parquet("output.parquet")
@@ -105,8 +127,6 @@ The schema classes provide everything needed for UI frameworks:
 - Enumerated options for dropdowns (licenses, profiles, etc.)
 - Built-in validation methods
 - Error messages for invalid input
-
-See `examples/datapackage_ui_demo.py` for detailed usage examples.
 
 ## 🔍 Validation System
 
@@ -150,8 +170,23 @@ See [trailpack/validation/README.md](trailpack/validation/README.md) for complet
 
 ## Contributing
 
-Contributions are very welcome.
-To learn more, see the [Contributor Guide][Contributor Guide].
+Contributions are very welcome! To learn more, see the [Contributor Guide][Contributor Guide].
+
+### Development Setup
+
+Install the package with development requirements:
+
+```console
+$ pip install -e ".[dev]"
+```
+
+Run tests:
+
+```console
+$ pytest
+```
+
+For more information, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
