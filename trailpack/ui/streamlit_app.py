@@ -170,6 +170,8 @@ if "resource_name_accepted" not in st.session_state:
     st.session_state.resource_name_accepted = False
 if "resource_name_editing" not in st.session_state:
     st.session_state.resource_name_editing = False
+if "scroll_to_top" not in st.session_state:
+    st.session_state.scroll_to_top = False
 
 
 def render_sidebar_header():
@@ -489,17 +491,26 @@ if st.session_state.get("scroll_to_top", False):
         <script>
             // Scroll to top of the page after navigation
             (function() {
-                // Try to scroll the main content area (Streamlit's default structure)
-                var mainContent = window.parent.document.querySelector('section.main');
-                if (mainContent) {
-                    mainContent.scrollTo({top: 0, behavior: 'instant'});
+                try {
+                    // Try to scroll the main content area (Streamlit's default structure)
+                    var mainContent = window.parent.document.querySelector('section.main');
+                    if (mainContent) {
+                        mainContent.scrollTo({top: 0, behavior: 'instant'});
+                    }
+                } catch (e) {
+                    // Cross-origin access may throw security exception - ignore
                 }
                 
-                // Also scroll the window if parent exists and is different from current window
-                if (window.parent && window.parent !== window) {
-                    window.parent.scrollTo({top: 0, behavior: 'instant'});
-                } else {
-                    // Fallback: scroll current window
+                try {
+                    // Also scroll the window if parent exists and is different from current window
+                    if (window.parent && window.parent !== window) {
+                        window.parent.scrollTo({top: 0, behavior: 'instant'});
+                    } else {
+                        // Fallback: scroll current window
+                        window.scrollTo({top: 0, behavior: 'instant'});
+                    }
+                } catch (e) {
+                    // Cross-origin access may throw security exception - fallback to current window
                     window.scrollTo({top: 0, behavior: 'instant'});
                 }
             })();
