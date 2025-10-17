@@ -266,6 +266,21 @@ def extract_first_word(query: str) -> str:
     return parts[0] if parts else ""
 
 
+def clear_column_cache_entries(column: str, prefix: str = "") -> None:
+    """
+    Clear all cache entries for a column from suggestions cache.
+
+    Args:
+        column: Column name to clear cache for
+        prefix: Optional prefix to append (e.g., "unit_" for unit caches)
+    """
+    cache_prefix = f"{column}_{prefix}" if prefix else f"{column}_"
+    suggestions_keys = st.session_state.suggestions_cache.keys()
+    cache_keys_to_remove = [k for k in suggestions_keys if k.startswith(cache_prefix)]
+    for cache_key in cache_keys_to_remove:
+        st.session_state.suggestions_cache.pop(cache_key, None)
+
+
 def load_excel_data(sheet_name: str) -> pd.DataFrame:
     """Load Excel data into a pandas DataFrame using SmartDataReader."""
     if st.session_state.temp_path is None:
@@ -888,7 +903,7 @@ elif st.session_state.page == 3:
                                             concept_cache_key
                                         ] = concept_definition
 
-                                # Display selected concept with clickable link to web page
+                                # Display selected concept with link
                                 web_url = iri_to_web_url(
                                     selected_id, st.session_state.language
                                 )
@@ -935,15 +950,7 @@ elif st.session_state.page == 3:
                                         if search_input_key in st.session_state:
                                             del st.session_state[search_input_key]
                                         # Clear all cache entries for this column
-                                        cache_keys_to_remove = [
-                                            k
-                                            for k in st.session_state.suggestions_cache.keys()  # noqa: E501
-                                            if k.startswith(f"{column}_")
-                                        ]
-                                        for cache_key in cache_keys_to_remove:
-                                            st.session_state.suggestions_cache.pop(
-                                                cache_key, None
-                                            )
+                                        clear_column_cache_entries(column)
                                         st.rerun()
 
                     # Description/Comment field - directly underneath ontology results
@@ -1192,16 +1199,10 @@ elif st.session_state.page == 3:
                                                 del st.session_state[
                                                     unit_search_input_key
                                                 ]
-                                            # Clear all unit suggestions cache entries for this column
-                                            unit_cache_keys_to_remove = [
-                                                k
-                                                for k in st.session_state.suggestions_cache.keys()
-                                                if k.startswith(f"{column}_unit_")
-                                            ]
-                                            for cache_key in unit_cache_keys_to_remove:
-                                                st.session_state.suggestions_cache.pop(
-                                                    cache_key, None
-                                                )
+                                            # Clear unit cache entries
+                                            clear_column_cache_entries(
+                                                column, prefix="unit_"
+                                            )
                                             st.rerun()
 
                         # Show warning if no selectbox was displayed
