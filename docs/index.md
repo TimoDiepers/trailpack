@@ -16,9 +16,9 @@ Trailpack collects metadata and directly validates it with the developed standar
 The developed standard expands on and is compatible with the [datapackage](https://datapackage.org/) standard. The metadata is and included under the datapackage.json keyword.
 
 Both formats for metadata and file format are chosen based on widespread usage and standardisation.
+The output file is readbale using [pyarrow](https://arrow.apache.org/docs/python/index.html) and other data handlers - and will be compatible and consumable using (Sentier data tools)(https://github.com/sentier-dev/sentier_data_tools)
 
 Tailpack was initially built during the hackathon of brightcon 2025 in Grenoble, as part of developing the standard data format for [Départ de Sentier](https://www.d-d-s.ch/) in [Issue 1](https://github.com/Depart-de-Sentier/brightcon-2025-material/issues/1). 
-
 ```{toctree}
 ---
 hidden:
