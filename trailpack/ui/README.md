@@ -1,6 +1,6 @@
 # Trailpack UI
 
-A Streamlit-based web interface for mapping Excel columns to PyST concepts.
+A Panel-based web interface for mapping Excel columns to PyST concepts.
 
 ## Features
 
@@ -8,26 +8,33 @@ A Streamlit-based web interface for mapping Excel columns to PyST concepts.
 - **Page 2**: Select sheet from the uploaded Excel file with data preview
 - **Page 3**: Map columns to PyST concepts with automatic suggestions and dataframe preview
 - **Page 4**: Enter general details and metadata for the data package
+- **Page 5**: Review and download the generated Parquet file
 
 ## Running the UI
 
-### Option 1: Using Streamlit directly
+### Option 1: Using the CLI command
 
 ```bash
-streamlit run trailpack/ui/streamlit_app.py
+trailpack ui
 ```
 
-### Option 2: Using the run script
+### Option 2: Using Panel directly
 
 ```bash
-python trailpack/ui/run_streamlit.py
+panel serve trailpack/ui/panel_app.py --show
 ```
 
-The UI will be available at http://localhost:8501
+### Option 3: Using the run script
+
+```bash
+python trailpack/ui/run_panel.py
+```
+
+The UI will be available at http://localhost:5006
 
 ## Requirements
 
-- streamlit >= 1.28.0
+- panel >= 1.3.0
 - pandas >= 2.0.0
 - openpyxl
 - httpx
@@ -44,8 +51,8 @@ The UI will be available at http://localhost:8501
 3. **Map Columns**: For each column in the selected sheet:
    - View the dataframe preview at the top
    - See sample values from each column
-   - View automatic PyST concept suggestions based on the column name
-   - Select the most appropriate PyST concept mapping
+   - Search for PyST concept mappings
+   - Add column descriptions
    - Continue to general details
 
 4. **General Details**: Provide metadata for the data package:
@@ -53,45 +60,17 @@ The UI will be available at http://localhost:8501
    - Title, description, and version (optional)
    - Profile type, keywords, homepage, and repository (optional)
    - Real-time validation of inputs
-   - Finish to complete the workflow
+   - Generate the Parquet file
+
+5. **Review**: Review the generated Parquet file with embedded metadata and download it.
 
 ## Features
 
-- **Smooth Page Transitions**: Uses Streamlit's session state for seamless navigation
+- **Page-Based Navigation**: Clear step-by-step workflow with manual page transitions
 - **Data Preview**: View the first entries of your dataframe before and during mapping
-- **Simplified Column Mapping**: Clean, table-like interface for mapping columns
-- **Internal View Object**: Mappings are stored internally in the correct format
+- **Simplified Column Mapping**: Clean interface for mapping columns
 - **Progress Indicators**: Visual feedback on current step and completion status
-
-## Output Format
-
-The UI internally generates a view object with the following structure:
-
-```json
-{
-  "sheet_name": "Sheet1",
-  "dataset_name": "file_name_Sheet1",
-  "columns": {
-    "column_name_1": {
-      "values": ["value1", "value2", "..."],
-      "mapping_to_pyst": {
-        "suggestions": [
-          {
-            "label": "string",
-            "id": "string"
-          }
-        ],
-        "selected": {
-          "label": "string",
-          "id": "string"
-        }
-      }
-    }
-  }
-}
-```
-
-This view object is stored in `st.session_state.view_object` and can be accessed programmatically.
+- **Modern UI**: Built with Panel's FastListTemplate for a professional look
 
 ## Configuration
 
@@ -106,28 +85,31 @@ PYST_HOST=https://api.pyst.example.com
 PYST_AUTH_TOKEN=your_token_here
 ```
 
-### Streamlit Cloud Deployment
+### Cloud Deployment
 
-When deploying to Streamlit Cloud:
+For deployment options, see [PANEL_DEPLOYMENT.md](../../PANEL_DEPLOYMENT.md).
 
-1. **Repository Setup**: Ensure your repository is pushed to GitHub
-2. **Secrets Configuration**: In the Streamlit Cloud dashboard, go to your app settings and add the following secrets:
-   ```toml
-   PYST_HOST = "https://your-pyst-api.example.com"
-   PYST_AUTH_TOKEN = "your_token_here"
-   ```
-3. **Requirements**: The `requirements.txt` file at the repository root lists all necessary dependencies
-4. **App Path**: Set the main file path to `trailpack/ui/streamlit_app.py`
-
-The configuration system automatically detects whether it's running locally (uses `.env` file) or on Streamlit Cloud (uses `st.secrets`).
+The configuration system automatically loads from:
+1. Environment variables (set via `.env` file or system)
+2. Deployment platform secrets/configuration
 
 ## Architecture
 
-The UI is built using Streamlit with the following features:
+The UI is built using Panel with the following features:
 
-- `streamlit_app.py`: Main application with session state management
-- Smooth page transitions using `st.rerun()`
+- `panel_app.py`: Main application with state management
+- `TrailpackApp` class: Encapsulates all UI logic and state
+- Page-based navigation system with manual transitions
 - Asynchronous API calls for fetching PyST suggestions
-- Clean, responsive layout with sidebar navigation
+- Responsive layout with sidebar navigation
 - Data preview on multiple pages
-- Internal view object generation (not displayed to user)
+
+## Why Panel?
+
+Panel was chosen over Streamlit for better maintainability:
+
+1. **More flexible architecture**: Panel apps can be served standalone or embedded
+2. **Better integration**: Works seamlessly with the HoloViz ecosystem
+3. **More deployment options**: Greater flexibility in how and where to deploy
+4. **Greater control**: More programmatic control over UI components
+5. **Better performance**: More efficient WebSocket handling and rendering
