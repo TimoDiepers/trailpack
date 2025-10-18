@@ -170,6 +170,8 @@ if "resource_name_accepted" not in st.session_state:
     st.session_state.resource_name_accepted = False
 if "resource_name_editing" not in st.session_state:
     st.session_state.resource_name_editing = False
+if "scroll_to_top" not in st.session_state:
+    st.session_state.scroll_to_top = False
 
 
 def render_sidebar_header():
@@ -198,6 +200,7 @@ def render_sidebar_header():
 def navigate_to(page: int):
     """Navigate to a specific page."""
     st.session_state.page = page
+    st.session_state.scroll_to_top = True
     st.rerun()
 
 
@@ -559,6 +562,42 @@ with st.sidebar:
 
 
 # ===== MAIN CONTENT =====
+
+# Handle scroll to top after navigation
+if st.session_state.get("scroll_to_top", False):
+    st.markdown(
+        """
+        <script>
+            // Scroll to top of the page after navigation
+            (function() {
+                try {
+                    // Try to scroll the main content area (Streamlit's default structure)
+                    var mainContent = window.parent.document.querySelector('section.main');
+                    if (mainContent) {
+                        mainContent.scrollTo({top: 0, behavior: 'instant'});
+                    }
+                } catch (e) {
+                    // Cross-origin access may throw security exception - ignore
+                }
+                
+                try {
+                    // Also scroll the window if parent exists and is different from current window
+                    if (window.parent && window.parent !== window) {
+                        window.parent.scrollTo({top: 0, behavior: 'instant'});
+                    } else {
+                        // Fallback: scroll current window
+                        window.scrollTo({top: 0, behavior: 'instant'});
+                    }
+                } catch (e) {
+                    // Cross-origin access may throw security exception - fallback to current window
+                    window.scrollTo({top: 0, behavior: 'instant'});
+                }
+            })();
+        </script>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.session_state.scroll_to_top = False
 
 # Page 1: File Upload and Language Selection
 if st.session_state.page == 1:
