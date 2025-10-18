@@ -97,17 +97,26 @@ async def test_get_concept_handles_http_errors():
             await client.get_concept("http://example.com/nonexistent")
 
 
-def test_fetch_concept_sync_extracts_definition_correctly():
-    """Test that fetch_concept_sync extracts SKOS definition correctly."""
-    from trailpack.ui.panel_app import fetch_concept_sync
+def test_fetch_concept_async_extracts_definition_correctly():
+    """Test that fetch_concept_async extracts SKOS definition correctly."""
+    import asyncio
+    from trailpack.ui.panel_app import fetch_concept_async
+    from trailpack.pyst.api.client import get_suggest_client
 
     # Mock the async function
     mock_definition = "This is a test definition"
 
-    with patch("trailpack.ui.panel_app.fetch_concept_async") as mock_fetch:
-        mock_fetch.return_value = mock_definition
+    with patch.object(
+        get_suggest_client(), "get_concept", new_callable=AsyncMock
+    ) as mock_get:
+        mock_concept_data = {
+            "http://www.w3.org/2004/02/skos/core#definition": [
+                {"@language": "en", "@value": mock_definition}
+            ]
+        }
+        mock_get.return_value = mock_concept_data
 
-        result = fetch_concept_sync("http://example.com/concept", "en")
+        result = asyncio.run(fetch_concept_async("http://example.com/concept", "en"))
 
         assert result == mock_definition
 

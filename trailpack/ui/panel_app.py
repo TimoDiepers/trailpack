@@ -120,30 +120,6 @@ async def fetch_suggestions_async(
         return []
 
 
-def fetch_suggestions_sync(column_name: str, language: str) -> List[Dict[str, str]]:
-    """
-    Synchronous wrapper for fetching suggestions.
-    
-    Uses a separate thread to avoid conflicts with Panel's event loop.
-    """
-    import concurrent.futures
-    
-    try:
-        # Run the async function in a separate thread to avoid event loop conflicts
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future = executor.submit(
-                asyncio.run,
-                fetch_suggestions_async(column_name, language)
-            )
-            return future.result(timeout=10)  # 10 second timeout
-    except concurrent.futures.TimeoutError:
-        print(f"Timeout fetching suggestions for '{column_name}'")
-        return []
-    except Exception as e:
-        print(f"Could not fetch suggestions for '{column_name}': {e}")
-        return []
-
-
 async def fetch_concept_async(iri: str, language: str) -> Optional[str]:
     """Fetch concept definition from PyST API."""
     try:
@@ -165,30 +141,6 @@ async def fetch_concept_async(iri: str, language: str) -> Optional[str]:
         return None
     except Exception as e:
         print(f"Error fetching concept {iri}: {e}")
-        return None
-
-
-def fetch_concept_sync(iri: str, language: str) -> Optional[str]:
-    """
-    Synchronous wrapper for fetching concept definition.
-    
-    Uses a separate thread to avoid conflicts with Panel's event loop.
-    """
-    import concurrent.futures
-    
-    try:
-        # Run the async function in a separate thread to avoid event loop conflicts
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future = executor.submit(
-                asyncio.run,
-                fetch_concept_async(iri, language)
-            )
-            return future.result(timeout=10)  # 10 second timeout
-    except concurrent.futures.TimeoutError:
-        print(f"Timeout fetching concept for {iri}")
-        return None
-    except Exception as e:
-        print(f"Error in fetch_concept_sync for {iri}: {e}")
         return None
 
 
@@ -390,23 +342,30 @@ class TrailpackApp:
             initial_query = sanitize_search_query(column)
             initial_suggestions = []
             if initial_query and len(initial_query) >= 2:
-                suggestions = fetch_suggestions_sync(extract_first_word(initial_query), self.language)
-                for s in suggestions:
-                    try:
-                        if isinstance(s, dict):
-                            label = s.get("label") or s.get("name") or s.get("title")
-                        else:
-                            label = getattr(s, "label", None) or getattr(s, "name", None)
-                        
-                        if label:
-                            initial_suggestions.append(label)
-                    except Exception:
-                        continue
+                # Use Panel's async support - wrap in pn.state.execute
+                async def fetch_initial():
+                    return await fetch_suggestions_async(extract_first_word(initial_query), self.language)
                 
-                # Store suggestions in cache
-                if initial_suggestions:
-                    cache_key = f"{column}_init"
-                    self.suggestions_cache[cache_key] = suggestions
+                try:
+                    suggestions = pn.state.execute(fetch_initial)
+                    for s in suggestions:
+                        try:
+                            if isinstance(s, dict):
+                                label = s.get("label") or s.get("name") or s.get("title")
+                            else:
+                                label = getattr(s, "label", None) or getattr(s, "name", None)
+                            
+                            if label:
+                                initial_suggestions.append(label)
+                        except Exception:
+                            continue
+                    
+                    # Store suggestions in cache
+                    if initial_suggestions:
+                        cache_key = f"{column}_init"
+                        self.suggestions_cache[cache_key] = suggestions
+                except Exception as e:
+                    print(f"Error fetching initial suggestions for {column}: {e}")
             
             autocomplete_input = pn.widgets.AutocompleteInput(
                 name="Search for ontology",
@@ -417,15 +376,16 @@ class TrailpackApp:
                 value=""
             )
             
-            # Update suggestions as user types
+            # Update suggestions as user types - use async callback
             def make_value_handler(col, widget):
-                def handler(event):
+                async def handler(event):
                     search_value = event.new
                     if search_value and len(search_value) >= 2:
-                        # Fetch new suggestions
+                        # Fetch new suggestions using Panel's native async support
                         sanitized_query = sanitize_search_query(search_value)
                         if sanitized_query:
-                            suggestions = fetch_suggestions_sync(sanitized_query, self.language)
+                            # Panel handles async callbacks natively
+                            suggestions = await fetch_suggestions_async(sanitized_query, self.language)
                             
                             # Extract labels
                             labels = []
