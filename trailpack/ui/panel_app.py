@@ -379,13 +379,95 @@ class TrailpackApp:
             if sample_values:
                 column_pane.append(pn.pane.Markdown(f"*Sample: {', '.join(sample_values[:3])}*"))
             
-            # Search field
-            search_input = pn.widgets.TextInput(
+            # Create AutocompleteInput for ontology search
+            # Pre-populate with initial suggestions based on column name
+            initial_query = sanitize_search_query(column)
+            initial_suggestions = []
+            if initial_query and len(initial_query) >= 2:
+                suggestions = fetch_suggestions_sync(extract_first_word(initial_query), self.language)
+                for s in suggestions:
+                    try:
+                        if isinstance(s, dict):
+                            label = s.get("label") or s.get("name") or s.get("title")
+                        else:
+                            label = getattr(s, "label", None) or getattr(s, "name", None)
+                        
+                        if label:
+                            initial_suggestions.append(label)
+                    except Exception:
+                        continue
+                
+                # Store suggestions in cache
+                if initial_suggestions:
+                    cache_key = f"{column}_init"
+                    self.suggestions_cache[cache_key] = suggestions
+            
+            autocomplete_input = pn.widgets.AutocompleteInput(
                 name="Search for ontology",
-                placeholder="Type to search...",
+                placeholder="Type to search PyST concepts...",
+                options=initial_suggestions[:10] if initial_suggestions else [],
+                case_sensitive=False,
+                min_characters=2,
                 value=""
             )
-            column_pane.append(search_input)
+            
+            # Update suggestions as user types
+            def make_value_handler(col, widget):
+                def handler(event):
+                    search_value = event.new
+                    if search_value and len(search_value) >= 2:
+                        # Fetch new suggestions
+                        sanitized_query = sanitize_search_query(search_value)
+                        if sanitized_query:
+                            suggestions = fetch_suggestions_sync(sanitized_query, self.language)
+                            
+                            # Extract labels
+                            labels = []
+                            for s in suggestions:
+                                try:
+                                    if isinstance(s, dict):
+                                        label = s.get("label") or s.get("name") or s.get("title")
+                                    else:
+                                        label = getattr(s, "label", None) or getattr(s, "name", None)
+                                    
+                                    if label:
+                                        labels.append(label)
+                                except Exception:
+                                    continue
+                            
+                            # Update widget options
+                            widget.options = labels[:10]
+                            
+                            # Store suggestions in cache
+                            if labels:
+                                cache_key = f"{col}_{search_value}"
+                                self.suggestions_cache[cache_key] = suggestions
+                            
+                            # Check if the current value matches a suggestion and store mapping
+                            selected_id = None
+                            for s in suggestions:
+                                try:
+                                    if isinstance(s, dict):
+                                        s_id = s.get("id") or s.get("id_") or s.get("uri")
+                                        s_label = s.get("label") or s.get("name") or s.get("title")
+                                    else:
+                                        s_id = getattr(s, "id", None) or getattr(s, "id_", None)
+                                        s_label = getattr(s, "label", None) or getattr(s, "name", None)
+                                    
+                                    if s_label == search_value and s_id:
+                                        selected_id = s_id
+                                        self.column_mappings[col] = selected_id
+                                        break
+                                except Exception:
+                                    continue
+                    
+                return handler
+            
+            autocomplete_input.param.watch(
+                make_value_handler(column, autocomplete_input), 
+                'value_input'
+            )
+            column_pane.append(autocomplete_input)
             
             # Description field
             description_input = pn.widgets.TextAreaInput(

@@ -54,11 +54,15 @@ def ui(
     try:
         subprocess.run(
             [
+                sys.executable,
+                "-m",
                 "panel",
                 "serve",
                 str(app_path),
-                f"--port={port}",
-                f"--address={host}",
+                "--port",
+                str(port),
+                "--address",
+                host,
                 "--show",
             ],
             check=True,
