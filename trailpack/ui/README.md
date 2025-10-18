@@ -66,7 +66,7 @@ The UI will be available at http://localhost:5006
 
 ## Features
 
-- **Interactive Navigation**: Uses Panel's reactive programming for seamless page transitions
+- **Page-Based Navigation**: Clear step-by-step workflow with manual page transitions
 - **Data Preview**: View the first entries of your dataframe before and during mapping
 - **Simplified Column Mapping**: Clean interface for mapping columns
 - **Progress Indicators**: Visual feedback on current step and completion status
@@ -97,9 +97,9 @@ The configuration system automatically loads from:
 
 The UI is built using Panel with the following features:
 
-- `panel_app.py`: Main application with reactive state management
+- `panel_app.py`: Main application with state management
 - `TrailpackApp` class: Encapsulates all UI logic and state
-- Page-based navigation system
+- Page-based navigation system with manual transitions
 - Asynchronous API calls for fetching PyST suggestions
 - Responsive layout with sidebar navigation
 - Data preview on multiple pages
