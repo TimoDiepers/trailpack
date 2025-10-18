@@ -123,19 +123,22 @@ async def fetch_suggestions_async(
 def fetch_suggestions_sync(column_name: str, language: str) -> List[Dict[str, str]]:
     """
     Synchronous wrapper for fetching suggestions.
+    
+    Uses a separate thread to avoid conflicts with Panel's event loop.
     """
+    import concurrent.futures
+    
     try:
-        try:
-            loop = asyncio.get_event_loop()
-            if loop.is_closed():
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        return loop.run_until_complete(fetch_suggestions_async(column_name, language))
-
+        # Run the async function in a separate thread to avoid event loop conflicts
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future = executor.submit(
+                asyncio.run,
+                fetch_suggestions_async(column_name, language)
+            )
+            return future.result(timeout=10)  # 10 second timeout
+    except concurrent.futures.TimeoutError:
+        print(f"Timeout fetching suggestions for '{column_name}'")
+        return []
     except Exception as e:
         print(f"Could not fetch suggestions for '{column_name}': {e}")
         return []
@@ -168,19 +171,22 @@ async def fetch_concept_async(iri: str, language: str) -> Optional[str]:
 def fetch_concept_sync(iri: str, language: str) -> Optional[str]:
     """
     Synchronous wrapper for fetching concept definition.
+    
+    Uses a separate thread to avoid conflicts with Panel's event loop.
     """
+    import concurrent.futures
+    
     try:
-        try:
-            loop = asyncio.get_event_loop()
-            if loop.is_closed():
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        return loop.run_until_complete(fetch_concept_async(iri, language))
-
+        # Run the async function in a separate thread to avoid event loop conflicts
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future = executor.submit(
+                asyncio.run,
+                fetch_concept_async(iri, language)
+            )
+            return future.result(timeout=10)  # 10 second timeout
+    except concurrent.futures.TimeoutError:
+        print(f"Timeout fetching concept for {iri}")
+        return None
     except Exception as e:
         print(f"Error in fetch_concept_sync for {iri}: {e}")
         return None
