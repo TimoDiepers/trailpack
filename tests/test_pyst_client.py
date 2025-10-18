@@ -99,12 +99,12 @@ async def test_get_concept_handles_http_errors():
 
 def test_fetch_concept_sync_extracts_definition_correctly():
     """Test that fetch_concept_sync extracts SKOS definition correctly."""
-    from trailpack.ui.streamlit_app import fetch_concept_sync
+    from trailpack.ui.panel_app import fetch_concept_sync
 
     # Mock the async function
     mock_definition = "This is a test definition"
 
-    with patch("trailpack.ui.streamlit_app.fetch_concept_async") as mock_fetch:
+    with patch("trailpack.ui.panel_app.fetch_concept_async") as mock_fetch:
         mock_fetch.return_value = mock_definition
 
         result = fetch_concept_sync("http://example.com/concept", "en")
@@ -115,7 +115,7 @@ def test_fetch_concept_sync_extracts_definition_correctly():
 def test_fetch_concept_async_extracts_english_definition():
     """Test that fetch_concept_async extracts definition in requested language."""
     import asyncio
-    from trailpack.ui.streamlit_app import fetch_concept_async
+    from trailpack.ui.panel_app import fetch_concept_async
     from trailpack.pyst.api.client import get_suggest_client
 
     # Mock response with multiple language definitions
@@ -141,7 +141,7 @@ def test_fetch_concept_async_extracts_english_definition():
 def test_fetch_concept_async_falls_back_to_first_definition():
     """Test fetch_concept_async falls back to first definition if language not found."""
     import asyncio
-    from trailpack.ui.streamlit_app import fetch_concept_async
+    from trailpack.ui.panel_app import fetch_concept_async
     from trailpack.pyst.api.client import get_suggest_client
 
     # Mock response with only German definition
@@ -165,7 +165,7 @@ def test_fetch_concept_async_falls_back_to_first_definition():
 def test_fetch_concept_async_returns_none_if_no_definition():
     """Test that fetch_concept_async returns None if no definition exists."""
     import asyncio
-    from trailpack.ui.streamlit_app import fetch_concept_async
+    from trailpack.ui.panel_app import fetch_concept_async
     from trailpack.pyst.api.client import get_suggest_client
 
     # Mock response without definition
@@ -189,7 +189,7 @@ def test_fetch_concept_async_returns_none_if_no_definition():
 def test_fetch_concept_async_handles_errors_gracefully():
     """Test that fetch_concept_async handles errors gracefully."""
     import asyncio
-    from trailpack.ui.streamlit_app import fetch_concept_async
+    from trailpack.ui.panel_app import fetch_concept_async
     from trailpack.pyst.api.client import get_suggest_client
 
     # Mock the client's get_concept method to raise an exception

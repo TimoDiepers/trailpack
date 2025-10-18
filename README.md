@@ -48,7 +48,7 @@ $ pip install trailpack
 
 ### Web Application
 
-The easiest way to use Trailpack is through the **[web application](https://trailpack.streamlit.app/)**.
+The easiest way to use Trailpack is through the **web application**.
 
 The web app provides a step-by-step workflow:
 1. **Upload File & Select Language**: Upload an Excel file and select language for PyST mapping
@@ -61,15 +61,17 @@ For walkthrough videos demonstrating the workflow, see the [documentation](https
 
 ### Local Web UI
 
-You can also run the Streamlit UI locally:
+You can also run the Panel UI locally:
 
 ```console
 $ trailpack ui
 ```
 
+The UI will open in your browser at `http://localhost:5006`.
+
 For more details, see [trailpack/ui/README.md](trailpack/ui/README.md).
 
-**Deploying to Streamlit Cloud?** See [STREAMLIT_DEPLOYMENT.md](STREAMLIT_DEPLOYMENT.md) for complete deployment instructions.
+**Deploying the web UI?** See [PANEL_DEPLOYMENT.md](PANEL_DEPLOYMENT.md) for complete deployment instructions.
 
 ## 📦 DataPackage Schema Classes
 
