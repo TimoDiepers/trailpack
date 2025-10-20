@@ -104,7 +104,7 @@ def extract_first_word(query: str) -> str:
 
 
 async def fetch_suggestions_async(
-    column_name: str, language: str
+    client, column_name: str, language: str
 ) -> List[Dict[str, str]]:
     """Fetch PyST suggestions for a column name."""
     try:
@@ -112,7 +112,6 @@ async def fetch_suggestions_async(
         if not sanitized_query:
             return []
 
-        client = get_suggest_client()
         suggestions = await client.suggest(sanitized_query, language)
         return suggestions[:5]
     except Exception as e:
@@ -120,10 +119,9 @@ async def fetch_suggestions_async(
         return []
 
 
-async def fetch_concept_async(iri: str, language: str) -> Optional[str]:
+async def fetch_concept_async(client, iri: str, language: str) -> Optional[str]:
     """Fetch concept definition from PyST API."""
     try:
-        client = get_suggest_client()
         concept = await client.get_concept(iri)
 
         definitions = concept.get("http://www.w3.org/2004/02/skos/core#definition", [])
@@ -175,6 +173,9 @@ class TrailpackApp:
         self.resource_name = None
         self.resource_name_confirmed = False
         self.resource_name_accepted = False
+        
+        # Create PyST client once for reuse
+        self.pyst_client = get_suggest_client()
         
         # Create main layout
         self.main_panel = pn.Column(sizing_mode="stretch_both")
@@ -338,16 +339,28 @@ class TrailpackApp:
                 column_pane.append(pn.pane.Markdown(f"*Sample: {', '.join(sample_values[:3])}*"))
             
             # Create AutocompleteInput for ontology search
-            # Pre-populate with initial suggestions based on column name
+            # Start with empty options - Panel will populate them asynchronously
+            autocomplete_input = pn.widgets.AutocompleteInput(
+                name="Search for ontology",
+                placeholder="Type to search PyST concepts...",
+                options=[],
+                case_sensitive=False,
+                min_characters=2,
+                value=""
+            )
+            
+            # Pre-populate with initial suggestions based on column name - let Panel handle async
             initial_query = sanitize_search_query(column)
-            initial_suggestions = []
             if initial_query and len(initial_query) >= 2:
-                # Use Panel's async support - wrap in pn.state.execute
-                async def fetch_initial():
-                    return await fetch_suggestions_async(extract_first_word(initial_query), self.language)
-                
-                try:
-                    suggestions = pn.state.execute(fetch_initial)
+                async def fetch_and_populate_initial():
+                    """Fetch initial suggestions and populate widget."""
+                    suggestions = await fetch_suggestions_async(
+                        self.pyst_client, 
+                        extract_first_word(initial_query), 
+                        self.language
+                    )
+                    
+                    labels = []
                     for s in suggestions:
                         try:
                             if isinstance(s, dict):
@@ -356,25 +369,20 @@ class TrailpackApp:
                                 label = getattr(s, "label", None) or getattr(s, "name", None)
                             
                             if label:
-                                initial_suggestions.append(label)
+                                labels.append(label)
                         except Exception:
                             continue
                     
+                    # Update widget options
+                    autocomplete_input.options = labels[:10]
+                    
                     # Store suggestions in cache
-                    if initial_suggestions:
+                    if labels:
                         cache_key = f"{column}_init"
                         self.suggestions_cache[cache_key] = suggestions
-                except Exception as e:
-                    print(f"Error fetching initial suggestions for {column}: {e}")
-            
-            autocomplete_input = pn.widgets.AutocompleteInput(
-                name="Search for ontology",
-                placeholder="Type to search PyST concepts...",
-                options=initial_suggestions[:10] if initial_suggestions else [],
-                case_sensitive=False,
-                min_characters=2,
-                value=""
-            )
+                
+                # Let Panel handle the async call
+                pn.state.execute(fetch_and_populate_initial)
             
             # Update suggestions as user types - use async callback
             def make_value_handler(col, widget):
@@ -385,7 +393,11 @@ class TrailpackApp:
                         sanitized_query = sanitize_search_query(search_value)
                         if sanitized_query:
                             # Panel handles async callbacks natively
-                            suggestions = await fetch_suggestions_async(sanitized_query, self.language)
+                            suggestions = await fetch_suggestions_async(
+                                self.pyst_client, 
+                                sanitized_query, 
+                                self.language
+                            )
                             
                             # Extract labels
                             labels = []

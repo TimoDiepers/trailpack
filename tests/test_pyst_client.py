@@ -105,27 +105,24 @@ def test_fetch_concept_async_extracts_definition_correctly():
 
     # Mock the async function
     mock_definition = "This is a test definition"
+    
+    mock_client = AsyncMock()
+    mock_concept_data = {
+        "http://www.w3.org/2004/02/skos/core#definition": [
+            {"@language": "en", "@value": mock_definition}
+        ]
+    }
+    mock_client.get_concept.return_value = mock_concept_data
 
-    with patch.object(
-        get_suggest_client(), "get_concept", new_callable=AsyncMock
-    ) as mock_get:
-        mock_concept_data = {
-            "http://www.w3.org/2004/02/skos/core#definition": [
-                {"@language": "en", "@value": mock_definition}
-            ]
-        }
-        mock_get.return_value = mock_concept_data
+    result = asyncio.run(fetch_concept_async(mock_client, "http://example.com/concept", "en"))
 
-        result = asyncio.run(fetch_concept_async("http://example.com/concept", "en"))
-
-        assert result == mock_definition
+    assert result == mock_definition
 
 
 def test_fetch_concept_async_extracts_english_definition():
     """Test that fetch_concept_async extracts definition in requested language."""
     import asyncio
     from trailpack.ui.panel_app import fetch_concept_async
-    from trailpack.pyst.api.client import get_suggest_client
 
     # Mock response with multiple language definitions
     mock_concept_data = {
@@ -136,22 +133,18 @@ def test_fetch_concept_async_extracts_english_definition():
         ]
     }
 
-    # Mock the client's get_concept method
-    with patch.object(
-        get_suggest_client(), "get_concept", new_callable=AsyncMock
-    ) as mock_get:
-        mock_get.return_value = mock_concept_data
+    mock_client = AsyncMock()
+    mock_client.get_concept.return_value = mock_concept_data
 
-        # Test English
-        result = asyncio.run(fetch_concept_async("http://example.com/concept", "en"))
-        assert result == "English definition"
+    # Test English
+    result = asyncio.run(fetch_concept_async(mock_client, "http://example.com/concept", "en"))
+    assert result == "English definition"
 
 
 def test_fetch_concept_async_falls_back_to_first_definition():
     """Test fetch_concept_async falls back to first definition if language not found."""
     import asyncio
     from trailpack.ui.panel_app import fetch_concept_async
-    from trailpack.pyst.api.client import get_suggest_client
 
     # Mock response with only German definition
     mock_concept_data = {
@@ -160,22 +153,18 @@ def test_fetch_concept_async_falls_back_to_first_definition():
         ]
     }
 
-    # Mock the client's get_concept method
-    with patch.object(
-        get_suggest_client(), "get_concept", new_callable=AsyncMock
-    ) as mock_get:
-        mock_get.return_value = mock_concept_data
+    mock_client = AsyncMock()
+    mock_client.get_concept.return_value = mock_concept_data
 
-        # Request English but only German available - should return German
-        result = asyncio.run(fetch_concept_async("http://example.com/concept", "en"))
-        assert result == "Deutsche Definition"
+    # Request English but only German available - should return German
+    result = asyncio.run(fetch_concept_async(mock_client, "http://example.com/concept", "en"))
+    assert result == "Deutsche Definition"
 
 
 def test_fetch_concept_async_returns_none_if_no_definition():
     """Test that fetch_concept_async returns None if no definition exists."""
     import asyncio
     from trailpack.ui.panel_app import fetch_concept_async
-    from trailpack.pyst.api.client import get_suggest_client
 
     # Mock response without definition
     mock_concept_data = {
@@ -185,27 +174,20 @@ def test_fetch_concept_async_returns_none_if_no_definition():
         ],
     }
 
-    # Mock the client's get_concept method
-    with patch.object(
-        get_suggest_client(), "get_concept", new_callable=AsyncMock
-    ) as mock_get:
-        mock_get.return_value = mock_concept_data
+    mock_client = AsyncMock()
+    mock_client.get_concept.return_value = mock_concept_data
 
-        result = asyncio.run(fetch_concept_async("http://example.com/concept", "en"))
-        assert result is None
+    result = asyncio.run(fetch_concept_async(mock_client, "http://example.com/concept", "en"))
+    assert result is None
 
 
 def test_fetch_concept_async_handles_errors_gracefully():
     """Test that fetch_concept_async handles errors gracefully."""
     import asyncio
     from trailpack.ui.panel_app import fetch_concept_async
-    from trailpack.pyst.api.client import get_suggest_client
 
-    # Mock the client's get_concept method to raise an exception
-    with patch.object(
-        get_suggest_client(), "get_concept", new_callable=AsyncMock
-    ) as mock_get:
-        mock_get.side_effect = Exception("API error")
+    mock_client = AsyncMock()
+    mock_client.get_concept.side_effect = Exception("API error")
 
-        result = asyncio.run(fetch_concept_async("http://example.com/concept", "en"))
-        assert result is None
+    result = asyncio.run(fetch_concept_async(mock_client, "http://example.com/concept", "en"))
+    assert result is None
