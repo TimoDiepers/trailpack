@@ -38,7 +38,7 @@ The output file is readable using [PyArrow](https://arrow.apache.org/docs/python
 You can install _trailpack_ via [pip] from [PyPI]:
 
 ```console
-$ pip install trailpack
+pip install trailpack
 ```
 
 [pip]: https://pip.pypa.io/
@@ -64,7 +64,7 @@ For walkthrough videos demonstrating the workflow, see the [documentation](https
 You can also run the Streamlit UI locally:
 
 ```console
-$ trailpack ui
+trailpack ui
 ```
 
 For more details, see [trailpack/ui/README.md](trailpack/ui/README.md).
@@ -149,13 +149,13 @@ Contributions are very welcome! To learn more, see the [Contributor Guide][Contr
 Install the package with development requirements:
 
 ```console
-$ pip install -e ".[dev]"
+pip install -e ".[dev]"
 ```
 
 Run tests:
 
 ```console
-$ pytest
+pytest
 ```
 
 For more information, see [CONTRIBUTING.md](CONTRIBUTING.md).
