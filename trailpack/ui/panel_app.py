@@ -341,22 +341,28 @@ class TrailpackApp:
             # Check if column is numeric
             is_numeric = pd.api.types.is_numeric_dtype(self.df[column])
             
-            # Create a TextInput for search query to bind to
-            search_input = pn.widgets.TextInput(
+            # Create AutocompleteInput that dynamically fetches options as user types
+            autocomplete_input = pn.widgets.AutocompleteInput(
                 name="Search for ontology",
                 placeholder="Type to search PyST concepts...",
-                value="",
+                options=[],
+                case_sensitive=False,
+                min_characters=2,
+                value=""
             )
             
-            # Use .bind() to dynamically fetch options based on search input
-            async def get_ontology_options(search_text, col=column):
-                """Fetch PyST suggestions based on search text."""
+            # Async callback to fetch and update options as user types
+            async def update_options(event, col=column):
+                """Fetch PyST suggestions and update options based on what user types."""
+                search_text = event.new
                 if not search_text or len(search_text) < 2:
-                    return []
+                    autocomplete_input.options = []
+                    return
                 
                 sanitized_query = sanitize_search_query(search_text)
                 if not sanitized_query:
-                    return []
+                    autocomplete_input.options = []
+                    return
                 
                 # Check cache first
                 cache_key = f"{col}_{sanitized_query}"
@@ -384,17 +390,11 @@ class TrailpackApp:
                     except Exception:
                         continue
                 
-                return labels[:10]
+                # Update the options
+                autocomplete_input.options = labels[:10]
             
-            # Create AutocompleteInput with bound options
-            autocomplete_input = pn.widgets.AutocompleteInput(
-                name="",  # No label since search_input has it
-                placeholder="Select from suggestions...",
-                options=pn.bind(get_ontology_options, search_input),
-                case_sensitive=False,
-                min_characters=0,
-                value=""
-            )
+            # Watch value_input (what user is typing) and update options dynamically
+            autocomplete_input.param.watch(update_options, 'value_input')
             
             # Function to update info pane when selection is made
             async def update_info_pane(selected_value, col=column):
@@ -459,32 +459,39 @@ class TrailpackApp:
             initial_query = sanitize_search_query(column)
             if initial_query and len(initial_query) >= 2:
                 first_word = extract_first_word(initial_query)
-                search_input.value = first_word
                 
-                # Pre-fetch and set initial selection
+                # Pre-fetch and set initial value
                 async def set_initial_value():
                     suggestions = await fetch_suggestions_async(
                         self.pyst_client,
                         first_word,
                         self.language
                     )
-                    if suggestions:
-                        for s in suggestions:
-                            try:
-                                if isinstance(s, dict):
-                                    s_label = s.get("label") or s.get("name") or s.get("title")
-                                else:
-                                    s_label = getattr(s, "label", None) or getattr(s, "name", None)
-                                
-                                if s_label:
-                                    autocomplete_input.value = s_label
-                                    break
-                            except Exception:
-                                continue
+                    
+                    # Extract labels and set options
+                    labels = []
+                    for s in suggestions:
+                        try:
+                            if isinstance(s, dict):
+                                s_label = s.get("label") or s.get("name") or s.get("title")
+                            else:
+                                s_label = getattr(s, "label", None) or getattr(s, "name", None)
+                            
+                            if s_label:
+                                labels.append(s_label)
+                        except Exception:
+                            continue
+                    
+                    # Update options and cache
+                    if labels:
+                        autocomplete_input.options = labels[:10]
+                        cache_key = f"{column}_{first_word}"
+                        self.suggestions_cache[cache_key] = suggestions
+                        # Set initial value to first suggestion
+                        autocomplete_input.value = labels[0]
                 
                 pn.state.execute(set_initial_value)
             
-            column_pane.append(search_input)
             column_pane.append(autocomplete_input)
             column_pane.append(info_pane)
             
@@ -507,24 +514,30 @@ class TrailpackApp:
             
             description_input.param.watch(make_description_handler(column), 'value')
             
-            # If numeric, add unit search field using .bind()
+            # If numeric, add unit search field
             if is_numeric:
-                # Create a TextInput for unit search query
-                unit_search_input = pn.widgets.TextInput(
+                # Create AutocompleteInput that dynamically fetches unit options as user types
+                unit_autocomplete = pn.widgets.AutocompleteInput(
                     name="Search for unit *",
                     placeholder="Type to search for unit (required for numeric columns)...",
-                    value="",
+                    options=[],
+                    case_sensitive=False,
+                    min_characters=2,
+                    value=""
                 )
                 
-                # Use .bind() to dynamically fetch unit options
-                async def get_unit_options(search_text, col=column):
-                    """Fetch PyST unit suggestions based on search text."""
+                # Async callback to fetch and update unit options as user types
+                async def update_unit_options(event, col=column):
+                    """Fetch PyST unit suggestions and update options based on what user types."""
+                    search_text = event.new
                     if not search_text or len(search_text) < 2:
-                        return []
+                        unit_autocomplete.options = []
+                        return
                     
                     sanitized_query = sanitize_search_query(search_text)
                     if not sanitized_query:
-                        return []
+                        unit_autocomplete.options = []
+                        return
                     
                     # Check cache first
                     cache_key = f"{col}_unit_{sanitized_query}"
@@ -552,17 +565,11 @@ class TrailpackApp:
                         except Exception:
                             continue
                     
-                    return labels[:10]
+                    # Update the options
+                    unit_autocomplete.options = labels[:10]
                 
-                # Create AutocompleteInput with bound options
-                unit_autocomplete = pn.widgets.AutocompleteInput(
-                    name="",  # No label since unit_search_input has it
-                    placeholder="Select from suggestions...",
-                    options=pn.bind(get_unit_options, unit_search_input),
-                    case_sensitive=False,
-                    min_characters=0,
-                    value=""
-                )
+                # Watch value_input (what user is typing) and update options dynamically
+                unit_autocomplete.param.watch(update_unit_options, 'value_input')
                 
                 # Function to update unit info pane when selection is made
                 async def update_unit_info_pane(selected_value, col=column):
@@ -623,7 +630,6 @@ class TrailpackApp:
                     sizing_mode="stretch_width"
                 )
                 
-                column_pane.append(unit_search_input)
                 column_pane.append(unit_autocomplete)
                 column_pane.append(unit_info_pane)
             
