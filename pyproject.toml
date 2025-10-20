@@ -73,7 +73,9 @@ dev = [
 [tool.setuptools]
 license-files = ["LICENSE"]
 include-package-data = true
-packages = ["trailpack"]
+
+[tool.setuptools.packages.find]
+include = ["trailpack*"]
 
 [tool.setuptools.dynamic]
 version = {attr = "trailpack.__version__"}
