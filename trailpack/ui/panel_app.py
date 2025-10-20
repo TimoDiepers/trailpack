@@ -465,6 +465,9 @@ class TrailpackApp:
             if initial_query and len(initial_query) >= 2:
                 first_word = extract_first_word(initial_query)
                 
+                # Pre-fill the value_input to trigger initial search
+                autocomplete_input.value_input = first_word
+                
                 # Pre-fetch and set initial value
                 async def set_initial_value():
                     suggestions = await fetch_suggestions_async(
@@ -500,16 +503,16 @@ class TrailpackApp:
             column_pane.append(autocomplete_input)
             column_pane.append(info_pane)
             
-            # Description field
+            # Description field - changes based on whether ontology is selected
             description_input = pn.widgets.TextAreaInput(
-                name="Column Description (optional)" if column in self.column_mappings else "Column Description *",
-                placeholder="Describe what this column represents..." if column not in self.column_mappings else "Add optional comments or notes...",
+                name="Comment (optional)" if column in self.column_mappings else "Column Description *",
+                placeholder="Add optional comments or notes..." if column in self.column_mappings else "Describe what this column represents (required if no ontology match)...",
                 value=self.column_descriptions.get(column, ""),
                 height=80
             )
             column_pane.append(description_input)
             
-            def make_description_handler(col):
+            def make_description_handler(col, desc_widget, auto_widget):
                 def handler(event):
                     if event.new:
                         self.column_descriptions[col] = event.new
@@ -517,7 +520,21 @@ class TrailpackApp:
                         self.column_descriptions.pop(col, None)
                 return handler
             
-            description_input.param.watch(make_description_handler(column), 'value')
+            description_input.param.watch(make_description_handler(column, description_input, autocomplete_input), 'value')
+            
+            # Update description field label when ontology selection changes
+            def make_ontology_change_handler(col, desc_widget):
+                def handler(event):
+                    # Update the label based on whether an ontology is now selected
+                    if col in self.column_mappings and self.column_mappings[col]:
+                        desc_widget.name = "Comment (optional)"
+                        desc_widget.placeholder = "Add optional comments or notes..."
+                    else:
+                        desc_widget.name = "Column Description *"
+                        desc_widget.placeholder = "Describe what this column represents (required if no ontology match)..."
+                return handler
+            
+            autocomplete_input.param.watch(make_ontology_change_handler(column, description_input), 'value')
             
             # If numeric, add unit search field
             if is_numeric:
@@ -648,12 +665,34 @@ class TrailpackApp:
 
         back_button = pn.widgets.Button(name="← Back", button_type="default")
         next_button = pn.widgets.Button(name="Next →", button_type="primary")
+        validation_message = pn.pane.Markdown("", sizing_mode="stretch_width")
         
         def on_back(event):
             self.navigate_to(2)
         
         def on_next(event):
-            self.navigate_to(4)
+            # Validate all columns before proceeding
+            errors = []
+            
+            for column in self.df.columns:
+                is_numeric = pd.api.types.is_numeric_dtype(self.df[column])
+                has_ontology = column in self.column_mappings and self.column_mappings[column]
+                has_description = column in self.column_descriptions and self.column_descriptions[column]
+                has_unit = f"{column}_unit" in self.column_mappings and self.column_mappings[f"{column}_unit"]
+                
+                # Each column must have either an ontology or a description
+                if not has_ontology and not has_description:
+                    errors.append(f"**{column}**: Must have either an ontology match or a description")
+                
+                # Numeric columns must have a unit
+                if is_numeric and not has_unit:
+                    errors.append(f"**{column}**: Numeric column requires a unit selection")
+            
+            if errors:
+                validation_message.object = "## ⚠️ Validation Errors\n\nPlease fix the following issues:\n\n" + "\n".join(f"- {e}" for e in errors)
+            else:
+                validation_message.object = ""
+                self.navigate_to(4)
         
         back_button.on_click(on_back)
         next_button.on_click(on_next)
@@ -661,6 +700,7 @@ class TrailpackApp:
         return pn.Column(
             title,
             *mapping_widgets,
+            validation_message,
             pn.Row(back_button, pn.Spacer(), next_button),
             sizing_mode="stretch_width",
             scroll=True
