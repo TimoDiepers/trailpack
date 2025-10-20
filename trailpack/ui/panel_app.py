@@ -338,8 +338,10 @@ class TrailpackApp:
             if sample_values:
                 column_pane.append(pn.pane.Markdown(f"*Sample: {', '.join(sample_values[:3])}*"))
             
+            # Check if column is numeric
+            is_numeric = pd.api.types.is_numeric_dtype(self.df[column])
+            
             # Create AutocompleteInput for ontology search
-            # Start with empty options - Panel will populate them asynchronously
             autocomplete_input = pn.widgets.AutocompleteInput(
                 name="Search for ontology",
                 placeholder="Type to search PyST concepts...",
@@ -349,80 +351,90 @@ class TrailpackApp:
                 value=""
             )
             
-            # Pre-populate with initial suggestions based on column name - let Panel handle async
+            # Create info pane for displaying selected concept
+            info_pane = pn.pane.Markdown("", sizing_mode="stretch_width")
+            
+            # Pre-populate with initial suggestions based on column name
             initial_query = sanitize_search_query(column)
             if initial_query and len(initial_query) >= 2:
-                async def fetch_and_populate_initial():
+                async def fetch_and_populate_initial(col=column, widget=autocomplete_input, info=info_pane):
                     """Fetch initial suggestions and populate widget."""
+                    first_word = extract_first_word(initial_query)
                     suggestions = await fetch_suggestions_async(
                         self.pyst_client, 
-                        extract_first_word(initial_query), 
+                        first_word, 
                         self.language
                     )
                     
+                    valid_suggestions = []
                     labels = []
                     for s in suggestions:
                         try:
                             if isinstance(s, dict):
-                                label = s.get("label") or s.get("name") or s.get("title")
+                                s_id = s.get("id") or s.get("id_") or s.get("uri")
+                                s_label = s.get("label") or s.get("name") or s.get("title")
                             else:
-                                label = getattr(s, "label", None) or getattr(s, "name", None)
+                                s_id = getattr(s, "id", None) or getattr(s, "id_", None)
+                                s_label = getattr(s, "label", None) or getattr(s, "name", None)
                             
-                            if label:
-                                labels.append(label)
+                            if s_id and s_label:
+                                labels.append(s_label)
+                                valid_suggestions.append({"id": s_id, "label": s_label})
                         except Exception:
                             continue
                     
-                    # Update widget options
-                    autocomplete_input.options = labels[:10]
+                    # Update widget options and set initial value to first suggestion
+                    widget.options = labels[:10]
+                    if valid_suggestions:
+                        # Set the value to the first suggestion
+                        widget.value = valid_suggestions[0]["label"]
+                        # Store the mapping
+                        self.column_mappings[col] = valid_suggestions[0]["id"]
+                        
+                        # Fetch and display concept definition
+                        definition = await fetch_concept_async(
+                            self.pyst_client,
+                            valid_suggestions[0]["id"],
+                            self.language
+                        )
+                        web_url = iri_to_web_url(valid_suggestions[0]["id"], self.language)
+                        if definition:
+                            info.object = (
+                                f"**Selected:** {valid_suggestions[0]['label']}\n\n"
+                                f"**Description:** {definition}\n\n"
+                                f"[🔗 View on vocab.sentier.dev]({web_url})"
+                            )
+                        else:
+                            info.object = (
+                                f"**Selected:** {valid_suggestions[0]['label']}\n\n"
+                                f"[🔗 View on vocab.sentier.dev]({web_url})"
+                            )
                     
                     # Store suggestions in cache
-                    if labels:
-                        cache_key = f"{column}_init"
+                    if valid_suggestions:
+                        cache_key = f"{col}_{first_word}"
                         self.suggestions_cache[cache_key] = suggestions
                 
                 # Let Panel handle the async call
                 pn.state.execute(fetch_and_populate_initial)
             
-            # Update suggestions as user types - use async callback
-            def make_value_handler(col, widget):
+            # Update suggestions and info as user types
+            def make_value_handler(col, widget, info):
                 async def handler(event):
                     search_value = event.new
                     if search_value and len(search_value) >= 2:
-                        # Fetch new suggestions using Panel's native async support
+                        # Fetch new suggestions
                         sanitized_query = sanitize_search_query(search_value)
                         if sanitized_query:
-                            # Panel handles async callbacks natively
                             suggestions = await fetch_suggestions_async(
                                 self.pyst_client, 
                                 sanitized_query, 
                                 self.language
                             )
                             
-                            # Extract labels
+                            # Extract valid suggestions
+                            valid_suggestions = []
                             labels = []
-                            for s in suggestions:
-                                try:
-                                    if isinstance(s, dict):
-                                        label = s.get("label") or s.get("name") or s.get("title")
-                                    else:
-                                        label = getattr(s, "label", None) or getattr(s, "name", None)
-                                    
-                                    if label:
-                                        labels.append(label)
-                                except Exception:
-                                    continue
-                            
-                            # Update widget options
-                            widget.options = labels[:10]
-                            
-                            # Store suggestions in cache
-                            if labels:
-                                cache_key = f"{col}_{search_value}"
-                                self.suggestions_cache[cache_key] = suggestions
-                            
-                            # Check if the current value matches a suggestion and store mapping
-                            selected_id = None
                             for s in suggestions:
                                 try:
                                     if isinstance(s, dict):
@@ -432,27 +444,60 @@ class TrailpackApp:
                                         s_id = getattr(s, "id", None) or getattr(s, "id_", None)
                                         s_label = getattr(s, "label", None) or getattr(s, "name", None)
                                     
-                                    if s_label == search_value and s_id:
-                                        selected_id = s_id
-                                        self.column_mappings[col] = selected_id
-                                        break
+                                    if s_id and s_label:
+                                        labels.append(s_label)
+                                        valid_suggestions.append({"id": s_id, "label": s_label})
                                 except Exception:
                                     continue
+                            
+                            # Update widget options
+                            widget.options = labels[:10]
+                            
+                            # Store suggestions in cache
+                            if valid_suggestions:
+                                cache_key = f"{col}_{search_value}"
+                                self.suggestions_cache[cache_key] = suggestions
+                            
+                            # Check if the current value matches a suggestion and update info
+                            for suggestion in valid_suggestions:
+                                if suggestion["label"] == search_value:
+                                    self.column_mappings[col] = suggestion["id"]
+                                    
+                                    # Fetch and display concept definition
+                                    definition = await fetch_concept_async(
+                                        self.pyst_client,
+                                        suggestion["id"],
+                                        self.language
+                                    )
+                                    web_url = iri_to_web_url(suggestion["id"], self.language)
+                                    if definition:
+                                        info.object = (
+                                            f"**Selected:** {suggestion['label']}\n\n"
+                                            f"**Description:** {definition}\n\n"
+                                            f"[🔗 View on vocab.sentier.dev]({web_url})"
+                                        )
+                                    else:
+                                        info.object = (
+                                            f"**Selected:** {suggestion['label']}\n\n"
+                                            f"[🔗 View on vocab.sentier.dev]({web_url})"
+                                        )
+                                    break
                     
                 return handler
             
             autocomplete_input.param.watch(
-                make_value_handler(column, autocomplete_input), 
-                'value_input'
+                make_value_handler(column, autocomplete_input, info_pane), 
+                'value'
             )
             column_pane.append(autocomplete_input)
+            column_pane.append(info_pane)
             
             # Description field
             description_input = pn.widgets.TextAreaInput(
-                name="Column Description",
-                placeholder="Describe what this column represents...",
+                name="Column Description (optional)" if column in self.column_mappings else "Column Description *",
+                placeholder="Describe what this column represents..." if column not in self.column_mappings else "Add optional comments or notes...",
                 value=self.column_descriptions.get(column, ""),
-                height=100
+                height=80
             )
             column_pane.append(description_input)
             
@@ -465,6 +510,93 @@ class TrailpackApp:
                 return handler
             
             description_input.param.watch(make_description_handler(column), 'value')
+            
+            # If numeric, add unit search field
+            if is_numeric:
+                unit_autocomplete = pn.widgets.AutocompleteInput(
+                    name="Search for unit *",
+                    placeholder="Type to search for unit (required for numeric columns)...",
+                    options=[],
+                    case_sensitive=False,
+                    min_characters=2,
+                    value=""
+                )
+                
+                unit_info_pane = pn.pane.Markdown("", sizing_mode="stretch_width")
+                
+                # Update unit suggestions and info as user types
+                def make_unit_handler(col, widget, info):
+                    async def handler(event):
+                        search_value = event.new
+                        if search_value and len(search_value) >= 2:
+                            # Fetch unit suggestions
+                            sanitized_query = sanitize_search_query(search_value)
+                            if sanitized_query:
+                                suggestions = await fetch_suggestions_async(
+                                    self.pyst_client, 
+                                    sanitized_query, 
+                                    self.language
+                                )
+                                
+                                # Extract valid suggestions
+                                valid_suggestions = []
+                                labels = []
+                                for s in suggestions:
+                                    try:
+                                        if isinstance(s, dict):
+                                            s_id = s.get("id") or s.get("id_") or s.get("uri")
+                                            s_label = s.get("label") or s.get("name") or s.get("title")
+                                        else:
+                                            s_id = getattr(s, "id", None) or getattr(s, "id_", None)
+                                            s_label = getattr(s, "label", None) or getattr(s, "name", None)
+                                        
+                                        if s_id and s_label:
+                                            labels.append(s_label)
+                                            valid_suggestions.append({"id": s_id, "label": s_label})
+                                    except Exception:
+                                        continue
+                                
+                                # Update widget options
+                                widget.options = labels[:10]
+                                
+                                # Store suggestions in cache
+                                if valid_suggestions:
+                                    cache_key = f"{col}_unit_{search_value}"
+                                    self.suggestions_cache[cache_key] = suggestions
+                                
+                                # Check if the current value matches a suggestion and update info
+                                for suggestion in valid_suggestions:
+                                    if suggestion["label"] == search_value:
+                                        self.column_mappings[f"{col}_unit"] = suggestion["id"]
+                                        
+                                        # Fetch and display unit concept definition
+                                        definition = await fetch_concept_async(
+                                            self.pyst_client,
+                                            suggestion["id"],
+                                            self.language
+                                        )
+                                        web_url = iri_to_web_url(suggestion["id"], self.language)
+                                        if definition:
+                                            info.object = (
+                                                f"**Selected unit:** {suggestion['label']}\n\n"
+                                                f"**Description:** {definition}\n\n"
+                                                f"[🔗 View on vocab.sentier.dev]({web_url})"
+                                            )
+                                        else:
+                                            info.object = (
+                                                f"**Selected unit:** {suggestion['label']}\n\n"
+                                                f"[🔗 View on vocab.sentier.dev]({web_url})"
+                                            )
+                                        break
+                        
+                    return handler
+                
+                unit_autocomplete.param.watch(
+                    make_unit_handler(column, unit_autocomplete, unit_info_pane), 
+                    'value'
+                )
+                column_pane.append(unit_autocomplete)
+                column_pane.append(unit_info_pane)
             
             mapping_widgets.append(column_pane)
             mapping_widgets.append(pn.layout.Divider())
