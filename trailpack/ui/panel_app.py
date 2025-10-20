@@ -351,50 +351,55 @@ class TrailpackApp:
                 value=""
             )
             
-            # Async callback to fetch and update options as user types
-            async def update_options(event, col=column):
-                """Fetch PyST suggestions and update options based on what user types."""
-                search_text = event.new
-                if not search_text or len(search_text) < 2:
-                    autocomplete_input.options = []
-                    return
-                
-                sanitized_query = sanitize_search_query(search_text)
-                if not sanitized_query:
-                    autocomplete_input.options = []
-                    return
-                
-                # Check cache first
-                cache_key = f"{col}_{sanitized_query}"
-                if cache_key in self.suggestions_cache:
-                    suggestions = self.suggestions_cache[cache_key]
-                else:
-                    suggestions = await fetch_suggestions_async(
-                        self.pyst_client,
-                        sanitized_query,
-                        self.language
-                    )
-                    self.suggestions_cache[cache_key] = suggestions
-                
-                # Extract labels
-                labels = []
-                for s in suggestions:
-                    try:
-                        if isinstance(s, dict):
-                            s_label = s.get("label") or s.get("name") or s.get("title")
-                        else:
-                            s_label = getattr(s, "label", None) or getattr(s, "name", None)
-                        
-                        if s_label:
-                            labels.append(s_label)
-                    except Exception:
-                        continue
-                
-                # Update the options
-                autocomplete_input.options = labels[:10]
+            # Define async function to fetch and update options
+            def make_update_options(widget, col):
+                async def update_options(event):
+                    """Fetch PyST suggestions and update options based on what user types."""
+                    search_text = event.new
+                    if not search_text or len(search_text) < 2:
+                        widget.options = []
+                        return
+                    
+                    sanitized_query = sanitize_search_query(search_text)
+                    if not sanitized_query:
+                        widget.options = []
+                        return
+                    
+                    # Check cache first
+                    cache_key = f"{col}_{sanitized_query}"
+                    if cache_key in self.suggestions_cache:
+                        suggestions = self.suggestions_cache[cache_key]
+                    else:
+                        suggestions = await fetch_suggestions_async(
+                            self.pyst_client,
+                            sanitized_query,
+                            self.language
+                        )
+                        self.suggestions_cache[cache_key] = suggestions
+                    
+                    # Extract labels
+                    labels = []
+                    for s in suggestions:
+                        try:
+                            if isinstance(s, dict):
+                                s_label = s.get("label") or s.get("name") or s.get("title")
+                            else:
+                                s_label = getattr(s, "label", None) or getattr(s, "name", None)
+                            
+                            if s_label:
+                                labels.append(s_label)
+                        except Exception:
+                            continue
+                    
+                    # Update the options
+                    widget.options = labels[:10]
+                return update_options
             
             # Watch value_input (what user is typing) and update options dynamically
-            autocomplete_input.param.watch(update_options, 'value_input')
+            autocomplete_input.param.watch(
+                make_update_options(autocomplete_input, column), 
+                'value_input'
+            )
             
             # Function to update info pane when selection is made
             async def update_info_pane(selected_value, col=column):
@@ -526,50 +531,55 @@ class TrailpackApp:
                     value=""
                 )
                 
-                # Async callback to fetch and update unit options as user types
-                async def update_unit_options(event, col=column):
-                    """Fetch PyST unit suggestions and update options based on what user types."""
-                    search_text = event.new
-                    if not search_text or len(search_text) < 2:
-                        unit_autocomplete.options = []
-                        return
-                    
-                    sanitized_query = sanitize_search_query(search_text)
-                    if not sanitized_query:
-                        unit_autocomplete.options = []
-                        return
-                    
-                    # Check cache first
-                    cache_key = f"{col}_unit_{sanitized_query}"
-                    if cache_key in self.suggestions_cache:
-                        suggestions = self.suggestions_cache[cache_key]
-                    else:
-                        suggestions = await fetch_suggestions_async(
-                            self.pyst_client,
-                            sanitized_query,
-                            self.language
-                        )
-                        self.suggestions_cache[cache_key] = suggestions
-                    
-                    # Extract labels
-                    labels = []
-                    for s in suggestions:
-                        try:
-                            if isinstance(s, dict):
-                                s_label = s.get("label") or s.get("name") or s.get("title")
-                            else:
-                                s_label = getattr(s, "label", None) or getattr(s, "name", None)
-                            
-                            if s_label:
-                                labels.append(s_label)
-                        except Exception:
-                            continue
-                    
-                    # Update the options
-                    unit_autocomplete.options = labels[:10]
+                # Define async function to fetch and update unit options
+                def make_update_unit_options(widget, col):
+                    async def update_unit_options(event):
+                        """Fetch PyST unit suggestions and update options based on what user types."""
+                        search_text = event.new
+                        if not search_text or len(search_text) < 2:
+                            widget.options = []
+                            return
+                        
+                        sanitized_query = sanitize_search_query(search_text)
+                        if not sanitized_query:
+                            widget.options = []
+                            return
+                        
+                        # Check cache first
+                        cache_key = f"{col}_unit_{sanitized_query}"
+                        if cache_key in self.suggestions_cache:
+                            suggestions = self.suggestions_cache[cache_key]
+                        else:
+                            suggestions = await fetch_suggestions_async(
+                                self.pyst_client,
+                                sanitized_query,
+                                self.language
+                            )
+                            self.suggestions_cache[cache_key] = suggestions
+                        
+                        # Extract labels
+                        labels = []
+                        for s in suggestions:
+                            try:
+                                if isinstance(s, dict):
+                                    s_label = s.get("label") or s.get("name") or s.get("title")
+                                else:
+                                    s_label = getattr(s, "label", None) or getattr(s, "name", None)
+                                
+                                if s_label:
+                                    labels.append(s_label)
+                            except Exception:
+                                continue
+                        
+                        # Update the options
+                        widget.options = labels[:10]
+                    return update_unit_options
                 
                 # Watch value_input (what user is typing) and update options dynamically
-                unit_autocomplete.param.watch(update_unit_options, 'value_input')
+                unit_autocomplete.param.watch(
+                    make_update_unit_options(unit_autocomplete, column), 
+                    'value_input'
+                )
                 
                 # Function to update unit info pane when selection is made
                 async def update_unit_info_pane(selected_value, col=column):
