@@ -44,9 +44,9 @@ dependencies = [
 ]
 
 [project.urls]
-source = "https://github.com/TimoDiepers/trailpaack"
-homepage = "https://github.com/TimoDiepers/trailpaack"
-tracker = "https://github.com/TimoDiepers/trailpaack/issues"
+source = "https://github.com/TimoDiepers/trailpack"
+homepage = "https://github.com/TimoDiepers/trailpack"
+tracker = "https://github.com/TimoDiepers/trailpack/issues"
 
 [project.scripts]
 trailpack = "trailpack.cli:app"

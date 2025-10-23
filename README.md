@@ -4,7 +4,7 @@
 [![Status](https://img.shields.io/pypi/status/trailpack.svg)][pypi status]
 [![Python Version](https://img.shields.io/pypi/pyversions/trailpack)][pypi status]
 
-[![Read the documentation at https://trailpaack.readthedocs.io/](https://img.shields.io/readthedocs/trailpack/latest.svg?label=Read%20the%20Docs)][read the docs]
+[![Read the documentation at https://trailpack.readthedocs.io/](https://img.shields.io/readthedocs/trailpack/latest.svg?label=Read%20the%20Docs)][read the docs]
 [![Tests](https://github.com/TimoDiepers/trailpack/actions/workflows/python-test.yml/badge.svg)][tests]
 
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)][pre-commit]
@@ -173,10 +173,10 @@ please [file an issue][Issue Tracker] along with a detailed description.
 
 <!-- github-only -->
 
-[command-line reference]: https://trailpaack.readthedocs.io/en/latest/usage.html
-[License]: https://github.com/TimoDiepers/trailpaack/blob/main/LICENSE
-[Contributor Guide]: https://github.com/TimoDiepers/trailpaack/blob/main/CONTRIBUTING.md
-[Issue Tracker]: https://github.com/TimoDiepers/trailpaack/issues
+[command-line reference]: https://trailpack.readthedocs.io/en/latest/usage.html
+[License]: https://github.com/TimoDiepers/trailpack/blob/main/LICENSE
+[Contributor Guide]: https://github.com/TimoDiepers/trailpack/blob/main/CONTRIBUTING.md
+[Issue Tracker]: https://github.com/TimoDiepers/trailpack/issues
 
 
 ## Building the Documentation
@@ -190,7 +190,7 @@ conda env create -f docs/environment.yml
 activating the environment
 
 ```bash
-conda activate sphinx_trailpaack
+conda activate sphinx_trailpack
 ```
 
 and [running the build command](https://www.sphinx-doc.org/en/master/man/sphinx-build.html#sphinx-build):
