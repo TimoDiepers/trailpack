@@ -1,9 +1,9 @@
-"""Tests for Streamlit UI helper functions.
+"""Tests for Panel UI helper functions.
 
 Note: These tests duplicate function implementations instead of importing from
-streamlit_app.py because the Streamlit app has Streamlit-specific imports that
+panel_app.py because the Panel app has Panel-specific imports that
 would fail in the test environment. This is an acceptable trade-off for testing
-core logic without requiring a full Streamlit environment.
+core logic without requiring a full Panel environment.
 """
 
 import pytest
@@ -13,7 +13,7 @@ import re
 def extract_first_word(query: str) -> str:
     """
     Extract the first word from a string, stopping at the first space.
-    This duplicates the implementation in streamlit_app.py for testing purposes.
+    This duplicates the implementation in panel_app.py for testing purposes.
     """
     if not query:
         return ""
@@ -24,7 +24,7 @@ def extract_first_word(query: str) -> str:
 def sanitize_search_query(query: str) -> str:
     """
     Sanitize search query for safe API calls.
-    This duplicates the implementation in streamlit_app.py for testing purposes.
+    This duplicates the implementation in panel_app.py for testing purposes.
     """
     # Replace forward slashes, backslashes, and other special characters with spaces
     # Keep alphanumeric, spaces, hyphens, underscores, and periods

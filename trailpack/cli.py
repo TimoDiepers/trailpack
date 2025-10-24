@@ -26,13 +26,13 @@ console = Console()
 
 @app.command()
 def ui(
-    port: int = typer.Option(8501, "--port", "-p", help="Port to run Streamlit on"),
+    port: int = typer.Option(5006, "--port", "-p", help="Port to run Panel on"),
     host: str = typer.Option("localhost", "--host", help="Host to bind to"),
 ):
     """
-    Launch the Streamlit UI for interactive data mapping.
+    Launch the Panel UI for interactive data mapping.
 
-    Opens a browser at localhost:8501 with the full interactive interface
+    Opens a browser at localhost:5006 with the full interactive interface
     for mapping columns to ontologies and exporting data packages.
 
     Example:
@@ -42,31 +42,36 @@ def ui(
     import subprocess
     from pathlib import Path
 
-    # Get the path to streamlit_app.py
-    app_path = Path(__file__).parent / "ui" / "streamlit_app.py"
+    # Get the path to panel_app.py
+    app_path = Path(__file__).parent / "ui" / "panel_app.py"
 
     if not app_path.exists():
-        console.print(f"[red]Error: Could not find streamlit_app.py at {app_path}[/red]")
+        console.print(f"[red]Error: Could not find panel_app.py at {app_path}[/red]")
         raise typer.Exit(1)
 
-    console.print(f"[green]Starting Streamlit UI on {host}:{port}...[/green]")
+    console.print(f"[green]Starting Panel UI on {host}:{port}...[/green]")
 
     try:
         subprocess.run(
             [
-                "streamlit",
-                "run",
+                sys.executable,
+                "-m",
+                "panel",
+                "serve",
                 str(app_path),
-                f"--server.port={port}",
-                f"--server.address={host}",
+                "--port",
+                str(port),
+                "--address",
+                host,
+                "--show",
             ],
             check=True,
         )
     except subprocess.CalledProcessError as e:
-        console.print(f"[red]Error launching Streamlit: {e}[/red]")
+        console.print(f"[red]Error launching Panel: {e}[/red]")
         raise typer.Exit(1)
     except KeyboardInterrupt:
-        console.print("\n[yellow]Streamlit UI stopped[/yellow]")
+        console.print("\n[yellow]Panel UI stopped[/yellow]")
 
 
 @app.command()
