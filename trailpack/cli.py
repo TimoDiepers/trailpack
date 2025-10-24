@@ -552,7 +552,7 @@ Defines package metadata:
 
 ## Learn More
 
-- [Trailpack Documentation](https://github.com/TimoDiepers/trailpaack)
+- [Trailpack Documentation](https://github.com/TimoDiepers/trailpack)
 - [Frictionless Data Standard](https://specs.frictionlessdata.io/)
 """
 

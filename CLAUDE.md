@@ -62,7 +62,7 @@ Build documentation locally:
 ```bash
 # Using conda/mamba
 conda env create -f docs/environment.yml
-conda activate sphinx_trailpaack
+conda activate sphinx_trailpack
 sphinx-build docs _build/html --builder=html --jobs=auto --write-all
 ```
 
