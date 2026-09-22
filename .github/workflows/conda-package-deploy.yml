@@ -25,10 +25,14 @@ jobs:
           auto-activate-base: true
       - name: Publish distribution 📦 to conda channels
         if: startsWith(github.ref, 'refs/tags')
+        env:
+          # anaconda-client reads this itself, so no interactive login step is
+          # needed. Username/password auth is deprecated on anaconda.org and
+          # now fails outright.
+          ANACONDA_API_TOKEN: ${{ secrets.ANACONDA_API_TOKEN }}
         run: |
           conda info
           conda config --set auto_update_conda False
           conda install -y -q conda-build anaconda-client
-          anaconda login --username ${{ secrets.ANACONDA_USER }} --password "${{ secrets.ANACONDA_PASSWORD }}"
           conda config --set anaconda_upload yes
           conda build -c conda-forge conda.recipe .
