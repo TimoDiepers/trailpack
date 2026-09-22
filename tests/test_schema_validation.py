@@ -469,3 +469,16 @@ def test_validate_resource_suggests_sanitized_name(validator):
     assert "My Resource!" in warnings_str
     assert "my_resource" in warnings_str
     assert "Suggested name" in warnings_str or "suggested" in warnings_str.lower()
+
+
+@pytest.mark.parametrize("dtype", ["object", "str", "string"])
+def test_string_column_accepted_for_every_text_dtype(validator, dtype):
+    """'object' is pandas 2's text dtype, 'string' the extension one, and 'str'
+    what pandas 3 infers by default. All three are a string column, and
+    rejecting any of them makes valid data look like a schema mismatch."""
+    schema = {"fields": [{"name": "name", "type": "string", "description": "Name"}]}
+    df = pd.DataFrame({"name": ["A", "B", "C"]}).astype({"name": dtype})
+
+    result = validator.validate_data_quality(df, schema=schema)
+
+    assert [e for e in result.errors if "schema_matching" in str(e)] == []

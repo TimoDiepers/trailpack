@@ -4,6 +4,8 @@ Test the DataPackage schema classes.
 
 import pytest
 import json
+import re
+from datetime import date
 from trailpack.packing.datapackage_schema import (
     DataPackageSchema,
     MetaDataBuilder,
@@ -117,7 +119,19 @@ class TestDataPackageSchema:
 
 class TestMetaDataBuilder:
     """Test the MetaDataBuilder class."""
-    
+
+    def test_created_is_a_date_the_standard_accepts(self):
+        """The standard validates 'created' against ^\\d{4}-\\d{2}-\\d{2}$.
+
+        A full ISO timestamp here made every package the builder produced fail
+        its own validation.
+        """
+        builder = MetaDataBuilder()
+
+        created = builder.metadata["created"]
+        assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", created), created
+        assert created == date.today().isoformat()
+
     def test_basic_builder_workflow(self):
         """Test basic builder workflow."""
         builder = MetaDataBuilder()
