@@ -77,6 +77,13 @@ include-package-data = true
 [tool.setuptools.packages.find]
 include = ["trailpack*"]
 
+# include-package-data only picks up files a build plugin reports, and there is
+# none here, so the validation standards have to be named explicitly. Without
+# this an installed trailpack has no standard to validate against and
+# StandardValidator() raises FileNotFoundError.
+[tool.setuptools.package-data]
+trailpack = ["validation/standards/*.yaml"]
+
 [tool.setuptools.dynamic]
 version = {attr = "trailpack.__version__"}
 
@@ -88,10 +95,6 @@ norecursedirs = [
     ".tox"
 ]
 testpaths = ["tests/*.py"]
-
-[tool.pytest.anyio]
-# Configure anyio to only use asyncio backend, not trio
-anyio_backends = ["asyncio"]
 
 [tool.flake8]
 # Some sane defaults for the code style checker flake8

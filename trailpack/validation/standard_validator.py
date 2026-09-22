@@ -796,9 +796,12 @@ class StandardValidator:
 
             # For string type, check if it's actually string-like
             elif declared_type == "string":
-                if df[col].dtype != "object" and not df[col].dtype.name.startswith(
-                    "string"
-                ):
+                # 'object' is how pandas 2 holds text, 'string' is the extension
+                # dtype, and 'str' is what pandas 3 infers by default. All three
+                # are a string column.
+                if df[col].dtype.name not in ("object", "str") and not df[
+                    col
+                ].dtype.name.startswith("string"):
                     result.add_error(
                         f"Column '{col}' declared as 'string' but has dtype '{actual_dtype}'",
                         "schema_matching",

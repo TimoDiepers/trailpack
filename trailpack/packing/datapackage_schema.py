@@ -481,8 +481,13 @@ class MetaDataBuilder:
         return self
     
     def set_dates(self) -> 'MetaDataBuilder':
-        """Set creation date to current time"""
-        self.metadata["created"] = datetime.now().isoformat()
+        """Set creation date to today.
+
+        Date only: the standard specifies ``created`` as ISO 8601 ``YYYY-MM-DD``
+        and validates it against that pattern, so a full timestamp here makes
+        every package this builder produces fail its own validation.
+        """
+        self.metadata["created"] = datetime.now().date().isoformat()
         return self
 
     def set_links(
